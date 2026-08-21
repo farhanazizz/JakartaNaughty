@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<!--
+  ============================================================
+  public/dashboard.html — Dashboard User
+  ============================================================
+  Halaman utama setelah user login.
+  Menampilkan:
+  - Saldo kredit user
+  - Tombol generate gambar baru
+  - History 5 generate terakhir
+  - Auto-refresh setiap 10 detik jika ada job aktif
+  ============================================================
+-->
+<html lang="id" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — Krea2 Edit</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    /* Badge status warna */
+    .badge-pending    { @apply bg-yellow-500/20 text-yellow-400 border border-yellow-500/30; }
+    .badge-processing { @apply bg-blue-500/20 text-blue-400 border border-blue-500/30; }
+    .badge-done       { @apply bg-green-500/20 text-green-400 border border-green-500/30; }
+    .badge-failed     { @apply bg-red-500/20 text-red-400 border border-red-500/30; }
+    /* Animasi pulse untuk job aktif */
+    .pulse-dot::before {
+      content: '';
+      display: inline-block;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      margin-right: 6px;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+  </style>
+</head>
+
+<body class="dark bg-slate-900 min-h-screen text-white">
+
+  <!-- ==================== NAVBAR ==================== -->
+  <nav class="border-b border-slate-700/50 bg-slate-800/50 backdrop-blur-sm sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+
+      <!-- Logo -->
+      <a href="/dashboard.html" class="flex items-center gap-2 font-bold text-lg">
+        <span class="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center">
+          <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+          </svg>
+        </span>
+        <span>Krea2 Edit</span>
+      </a>
+
+      <!-- Kanan: Info kredit + tombol -->
+      <div class="flex items-center gap-3">
+        <!-- Saldo kredit (mobile: compact) -->
+        <div class="flex items-center gap-1.5 bg-slate-700 px-3 py-1.5 rounded-lg">
+          <svg class="w-4 h-4 text-orange-400" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clip-rule="evenodd" />
+          </svg>
+          <span class="text-sm font-semibold" id="nav-credits">-</span>
+          <span class="text-xs text-slate-400 hidden sm:inline">kredit</span>
+        </div>
+
+        <!-- Tombol Generate -->
+        <a href="/generate.html"
+           class="bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          <span class="hidden sm:inline">Generate</span>
+        </a>
+
+        <!-- Tombol Logout -->
+        <button id="btn-logout"
+          class="text-slate-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-slate-700"
+          title="Logout">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ==================== KONTEN UTAMA ==================== -->
+  <main class="max-w-6xl mx-auto px-4 py-8">
+
+    <!-- Greeting + Hero Card -->
+    <div class="bg-gradient-to-br from-orange-500/20 to-orange-600/10 border border-orange-500/20 rounded-2xl p-6 mb-8">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <p class="text-slate-400 text-sm mb-1">Selamat datang,</p>
+          <h1 class="text-2xl font-bold text-white" id="user-email">Loading...</h1>
+        </div>
+        <!-- Saldo kredit besar -->
+        <div class="text-right">
+          <p class="text-slate-400 text-xs uppercase tracking-wide mb-1">Saldo Kredit</p>
+          <div class="flex items-end gap-1">
+            <span class="text-5xl font-bold text-orange-400" id="credits-display">-</span>
+            <span class="text-orange-400/60 text-lg mb-1">kredit</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- CTA Generate -->
+      <div class="mt-4 pt-4 border-t border-orange-500/20">
+        <a href="/generate.html"
+           class="inline-flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold px-6 py-3 rounded-xl transition-all duration-200 shadow-lg shadow-orange-500/20">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+          </svg>
+          Generate Gambar Baru
+        </a>
+        <p class="text-slate-400 text-xs mt-2">1 generate = 1 kredit</p>
+      </div>
+    </div>
+
+    <!-- ==================== HISTORY GENERATE ==================== -->
+    <div>
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-white">History Generate Terbaru</h2>
+        <a href="/generate.html#history" class="text-orange-400 hover:text-orange-300 text-sm transition-colors">
+          Lihat semua →
+        </a>
+      </div>
+
+      <!-- Loading state -->
+      <div id="history-loading" class="text-center py-12 text-slate-500">
+        <div class="inline-block w-6 h-6 border-2 border-slate-600 border-t-orange-500 rounded-full animate-spin mb-3"></div>
+        <p class="text-sm">Memuat history...</p>
+      </div>
+
+      <!-- Empty state (tersembunyi by default) -->
+      <div id="history-empty" class="hidden text-center py-12">
+        <div class="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <svg class="w-8 h-8 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <p class="text-slate-400 font-medium">Belum ada generate</p>
+        <p class="text-slate-500 text-sm mt-1">Klik tombol Generate untuk memulai</p>
+      </div>
+
+      <!-- List jobs (diisi oleh JavaScript) -->
+      <div id="history-list" class="hidden space-y-3"></div>
+    </div>
+
+  </main>
+
+  <!-- ==================== MODAL PREVIEW GAMBAR ==================== -->
+  <div id="modal-preview" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-auto">
+      <div class="flex items-center justify-between p-4 border-b border-slate-700">
+        <h3 class="font-semibold">Hasil Generate</h3>
+        <button id="modal-close" class="text-slate-400 hover:text-white transition-colors">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div class="p-4">
+        <img id="modal-image" src="" alt="Hasil generate" class="w-full rounded-xl mb-4" />
+        <div id="modal-info" class="space-y-2 text-sm text-slate-400"></div>
+        <a id="modal-download" href="#" download
+           class="mt-4 w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2.5 rounded-xl transition-colors">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          Download Gambar
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============================================================
+    // Script Dashboard
+    // ============================================================
+
+    let currentUser = null;
+    let refreshTimer = null;
+
+    /**
+     * Format badge status job
+     * @param {string} status
+     * @returns {string} HTML badge
+     */
+    function statusBadge(status) {
+      const map = {
+        pending:    ['🕐', 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30', 'Menunggu'],
+        processing: ['⚡', 'bg-blue-500/20 text-blue-400 border border-blue-500/30', 'Diproses'],
+        done:       ['✅', 'bg-green-500/20 text-green-400 border border-green-500/30', 'Selesai'],
+        failed:     ['❌', 'bg-red-500/20 text-red-400 border border-red-500/30', 'Gagal'],
+      };
+      const [icon, cls, label] = map[status] || ['?', 'bg-slate-500/20 text-slate-400', 'Unknown'];
+      return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium ${cls}">${icon} ${label}</span>`;
+    }
+
+    /**
+     * Format tanggal ke format yang mudah dibaca
+     * @param {string} iso - ISO8601 timestamp
+     * @returns {string}
+     */
+    function formatDate(iso) {
+      if (!iso) return '-';
+      return new Date(iso).toLocaleString('id-ID', {
+        day: 'numeric', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+    }
+
+    /**
+     * Truncate teks panjang
+     * @param {string} text
+     * @param {number} max
+     */
+    function truncate(text, max = 60) {
+      if (!text) return '-';
+      return text.length > max ? text.substring(0, max) + '...' : text;
+    }
+
+    /**
+     * Render daftar job ke dalam #history-list
+     * @param {Array} jobs
+     */
+    function renderHistory(jobs) {
+      const loading = document.getElementById('history-loading');
+      const empty   = document.getElementById('history-empty');
+      const list    = document.getElementById('history-list');
+
+      loading.classList.add('hidden');
+
+      if (!jobs || jobs.length === 0) {
+        empty.classList.remove('hidden');
+        return;
+      }
+
+      empty.classList.add('hidden');
+      list.classList.remove('hidden');
+
+      list.innerHTML = jobs.map(job => `
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3 hover:border-slate-600 transition-colors">
+          <!-- Info utama -->
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1.5">
+              ${statusBadge(job.status)}
+              <span class="text-slate-500 text-xs">${formatDate(job.created_at)}</span>
+            </div>
+            <p class="text-sm text-slate-300 truncate" title="${job.positive_prompt}">
+              ${truncate(job.positive_prompt)}
+            </p>
+            ${job.source_image_name ? `<p class="text-xs text-slate-500 mt-1">📎 ${job.source_image_name}</p>` : ''}
+          </div>
+
+          <!-- Aksi -->
+          <div class="flex items-center gap-2 shrink-0">
+            ${job.status === 'done' ? `
+              <button
+                onclick="previewImage('${job.id}', ${JSON.stringify(job).replace(/"/g, '&quot;')})"
+                class="flex items-center gap-1.5 text-sm text-orange-400 hover:text-orange-300 bg-orange-500/10 hover:bg-orange-500/20 px-3 py-1.5 rounded-lg transition-colors">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Lihat Hasil
+              </button>
+            ` : ''}
+            ${job.status === 'failed' ? `
+              <span class="text-xs text-red-400 bg-red-500/10 px-3 py-1.5 rounded-lg" title="${job.error_message || 'Unknown error'}">
+                Gagal
+              </span>
+            ` : ''}
+          </div>
+        </div>
+      `).join('');
+
+      // Cek apakah ada job aktif → perlu auto-refresh
+      const hasActive = jobs.some(j => j.status === 'pending' || j.status === 'processing');
+      if (hasActive && !refreshTimer) {
+        // Auto-refresh setiap 10 detik jika ada job aktif
+        refreshTimer = setInterval(loadDashboard, 10000);
+      } else if (!hasActive && refreshTimer) {
+        clearInterval(refreshTimer);
+        refreshTimer = null;
+      }
+    }
+
+    /**
+     * Buka modal preview gambar hasil
+     * @param {string} jobId
+     * @param {Object} job
+     */
+    function previewImage(jobId, job) {
+      const modal    = document.getElementById('modal-preview');
+      const img      = document.getElementById('modal-image');
+      const info     = document.getElementById('modal-info');
+      const download = document.getElementById('modal-download');
+
+      // Set gambar
+      const imgUrl = `/api/jobs/${jobId}/image`;
+      img.src = imgUrl;
+
+      // Set info
+      info.innerHTML = `
+        <p><span class="text-slate-300">Prompt:</span> ${job.positive_prompt}</p>
+        <p><span class="text-slate-300">Tanggal:</span> ${formatDate(job.completed_at)}</p>
+        ${job.seed ? `<p><span class="text-slate-300">Seed:</span> ${job.seed}</p>` : ''}
+      `;
+
+      // Set tombol download
+      download.href = imgUrl;
+      download.download = `krea2_${jobId}.png`;
+
+      modal.classList.remove('hidden');
+    }
+
+    /**
+     * Muat data dashboard dari API
+     */
+    async function loadDashboard() {
+      try {
+        const res = await fetch('/api/user/dashboard', { credentials: 'include' });
+
+        if (res.status === 401) {
+          // Sesi habis — redirect ke login
+          window.location.href = '/login.html';
+          return;
+        }
+
+        const data = await res.json();
+        if (!data.success) return;
+
+        // Update tampilan kredit
+        const credits = data.data.credits;
+        document.getElementById('credits-display').textContent = credits;
+        document.getElementById('nav-credits').textContent = credits;
+
+        // Update email user
+        if (currentUser) {
+          document.getElementById('user-email').textContent = currentUser.email;
+        }
+
+        // Render history
+        renderHistory(data.data.recentJobs);
+
+      } catch (err) {
+        console.error('Gagal memuat dashboard:', err);
+      }
+    }
+
+    // ============================================================
+    // Inisialisasi saat halaman dimuat
+    // ============================================================
+    (async () => {
+      // Cek auth
+      const meRes = await fetch('/api/auth/me', { credentials: 'include' });
+      if (!meRes.ok) {
+        window.location.href = '/login.html';
+        return;
+      }
+      currentUser = (await meRes.json()).data;
+
+      // Muat data dashboard
+      await loadDashboard();
+    })();
+
+    // Tombol logout
+    document.getElementById('btn-logout').addEventListener('click', async () => {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+      window.location.href = '/login.html';
+    });
+
+    // Tutup modal preview
+    document.getElementById('modal-close').addEventListener('click', () => {
+      document.getElementById('modal-preview').classList.add('hidden');
+      document.getElementById('modal-image').src = '';
+    });
+
+    // Tutup modal jika klik di luar
+    document.getElementById('modal-preview').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) {
+        e.currentTarget.classList.add('hidden');
+        document.getElementById('modal-image').src = '';
+      }
+    });
+  </script>
+
+</body>
+</html>

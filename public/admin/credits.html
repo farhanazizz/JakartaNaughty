@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<!--
+  ============================================================
+  public/admin/credits.html — Admin: Kelola Kredit
+  ============================================================
+  Fitur:
+  - Daftar user dengan saldo kredit
+  - Modal tambah/kurangi kredit per user
+  - Wajib isi alasan setiap perubahan kredit
+  ============================================================
+-->
+<html lang="id" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kelola Kredit — Admin Krea2 Edit</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>body { font-family: 'Inter', sans-serif; }</style>
+</head>
+
+<body class="dark bg-slate-900 min-h-screen text-white">
+  <div class="flex min-h-screen">
+
+    <!-- Sidebar -->
+    <aside class="w-56 shrink-0 bg-slate-800 border-r border-slate-700 flex flex-col">
+      <div class="p-4 border-b border-slate-700">
+        <div class="flex items-center gap-2 font-bold text-sm">
+          <span class="w-7 h-7 rounded-lg bg-orange-500 flex items-center justify-center">
+            <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+            </svg>
+          </span>
+          Admin Panel
+        </div>
+      </div>
+      <nav class="flex-1 p-3 space-y-1 text-sm">
+        <a href="/admin/dashboard.html" class="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition-colors">🏠 Dashboard</a>
+        <a href="/admin/users.html"     class="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition-colors">👥 Kelola User</a>
+        <a href="/admin/credits.html"   class="flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-orange-500/10 text-orange-400">💰 Kelola Kredit</a>
+      </nav>
+      <div class="p-3 border-t border-slate-700">
+        <div class="text-xs text-slate-400 mb-2 px-2 truncate" id="admin-email"></div>
+        <button id="btn-logout" class="flex items-center gap-2 px-3 py-2 rounded-lg text-red-400 hover:bg-red-500/10 w-full text-sm transition-colors">
+          🚪 Logout
+        </button>
+      </div>
+    </aside>
+
+    <!-- Konten -->
+    <main class="flex-1 overflow-auto">
+      <div class="border-b border-slate-700 px-6 py-4">
+        <h1 class="text-xl font-bold">Kelola Kredit</h1>
+        <p class="text-slate-400 text-sm">Tambah atau kurangi kredit user</p>
+      </div>
+
+      <div class="p-6">
+        <!-- Search -->
+        <div class="mb-4">
+          <input type="text" id="search-input" placeholder="Cari email..."
+            class="w-full max-w-md bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500" />
+        </div>
+
+        <!-- Tabel -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-700/50">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs text-slate-400 font-medium">Email</th>
+                  <th class="px-4 py-3 text-left text-xs text-slate-400 font-medium">Saldo Kredit</th>
+                  <th class="px-4 py-3 text-left text-xs text-slate-400 font-medium">Status</th>
+                  <th class="px-4 py-3 text-left text-xs text-slate-400 font-medium">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="users-table" class="divide-y divide-slate-700/50">
+                <tr><td colspan="4" class="px-4 py-8 text-center text-slate-500">Memuat...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal Ubah Kredit -->
+  <div id="modal-credit" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-md p-6">
+      <div class="flex items-center justify-between mb-5">
+        <h3 class="font-semibold text-lg" id="modal-title">Tambah Kredit</h3>
+        <button onclick="closeModal()" class="text-slate-400 hover:text-white transition-colors">✕</button>
+      </div>
+
+      <div id="modal-error" class="hidden mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
+        <p id="modal-error-msg" class="text-red-400 text-sm"></p>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-1.5">User</label>
+          <input type="text" id="modal-user-email" readonly
+            class="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-4 py-2.5 text-sm text-slate-400" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-1.5">Jumlah Kredit</label>
+          <input type="number" id="modal-amount" min="1" value="10"
+            class="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-1.5">Alasan <span class="text-red-400">*</span></label>
+          <input type="text" id="modal-reason" placeholder="Contoh: Payment bulan Agustus"
+            class="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500" />
+        </div>
+      </div>
+
+      <div class="flex gap-3 mt-6">
+        <button onclick="closeModal()" class="flex-1 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl transition-colors text-sm">
+          Batal
+        </button>
+        <button id="btn-confirm" onclick="confirmCredit()"
+          class="flex-1 py-2.5 font-semibold rounded-xl transition-colors text-sm text-white">
+          Konfirmasi
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let allUsers = [];
+    let currentUserId = null;
+    let currentAction = null; // 'add' atau 'deduct'
+
+    async function loadUsers() {
+      const res  = await fetch('/api/admin/users?limit=100', { credentials: 'include' });
+      const data = await res.json();
+      if (!data.success) return;
+      allUsers = data.data.users;
+      renderUsers(allUsers);
+    }
+
+    function renderUsers(users) {
+      const tbody = document.getElementById('users-table');
+      if (users.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-slate-500">Tidak ada user</td></tr>';
+        return;
+      }
+      tbody.innerHTML = users.map(u => `
+        <tr class="hover:bg-slate-700/30 transition-colors">
+          <td class="px-4 py-3">
+            <div class="font-medium text-sm">${u.email}</div>
+          </td>
+          <td class="px-4 py-3">
+            <span class="text-2xl font-bold text-orange-400">${u.credits}</span>
+            <span class="text-slate-500 text-xs ml-1">kredit</span>
+          </td>
+          <td class="px-4 py-3">
+            ${u.is_active
+              ? '<span class="text-xs text-green-400">● Aktif</span>'
+              : '<span class="text-xs text-red-400">● Nonaktif</span>'
+            }
+          </td>
+          <td class="px-4 py-3">
+            <div class="flex gap-2">
+              <button onclick="openModal('${u.id}', '${u.email}', 'add')"
+                class="text-xs px-3 py-1.5 bg-green-500/10 text-green-400 hover:bg-green-500/20 rounded-lg transition-colors font-medium">
+                + Tambah
+              </button>
+              <button onclick="openModal('${u.id}', '${u.email}', 'deduct')"
+                class="text-xs px-3 py-1.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors font-medium">
+                - Kurangi
+              </button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function openModal(userId, userEmail, action) {
+      currentUserId = userId;
+      currentAction = action;
+
+      const isAdd = action === 'add';
+      document.getElementById('modal-title').textContent = isAdd ? '➕ Tambah Kredit' : '➖ Kurangi Kredit';
+      document.getElementById('modal-user-email').value = userEmail;
+      document.getElementById('modal-amount').value = '10';
+      document.getElementById('modal-reason').value = '';
+      document.getElementById('modal-error').classList.add('hidden');
+
+      const btn = document.getElementById('btn-confirm');
+      btn.className = `flex-1 py-2.5 font-semibold rounded-xl transition-colors text-sm text-white ${isAdd ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'}`;
+      btn.textContent = isAdd ? 'Tambah Kredit' : 'Kurangi Kredit';
+
+      document.getElementById('modal-credit').classList.remove('hidden');
+      document.getElementById('modal-amount').focus();
+    }
+
+    function closeModal() {
+      document.getElementById('modal-credit').classList.add('hidden');
+    }
+
+    async function confirmCredit() {
+      const amount = parseInt(document.getElementById('modal-amount').value);
+      const reason = document.getElementById('modal-reason').value.trim();
+
+      if (!amount || amount < 1) {
+        document.getElementById('modal-error').classList.remove('hidden');
+        document.getElementById('modal-error-msg').textContent = 'Jumlah kredit harus minimal 1.';
+        return;
+      }
+      if (!reason || reason.length < 3) {
+        document.getElementById('modal-error').classList.remove('hidden');
+        document.getElementById('modal-error-msg').textContent = 'Alasan wajib diisi (minimal 3 karakter).';
+        return;
+      }
+
+      const endpoint = `/api/admin/credits/${currentUserId}/${currentAction}`;
+      const btn = document.getElementById('btn-confirm');
+      btn.disabled = true;
+      btn.textContent = 'Memproses...';
+
+      const res  = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ amount, reason }),
+      });
+      const data = await res.json();
+
+      btn.disabled = false;
+      btn.textContent = currentAction === 'add' ? 'Tambah Kredit' : 'Kurangi Kredit';
+
+      if (res.ok && data.success) {
+        closeModal();
+        await loadUsers();
+        alert(`Berhasil! Saldo baru: ${data.data?.newBalance ?? '?'} kredit`);
+      } else {
+        document.getElementById('modal-error').classList.remove('hidden');
+        document.getElementById('modal-error-msg').textContent = data.message || 'Gagal.';
+      }
+    }
+
+    document.getElementById('search-input').addEventListener('input', (e) => {
+      const q = e.target.value.toLowerCase();
+      renderUsers(allUsers.filter(u => u.email.toLowerCase().includes(q)));
+    });
+
+    (async () => {
+      const meRes = await fetch('/api/auth/me', { credentials: 'include' });
+      if (!meRes.ok) { window.location.href = '/admin/login.html'; return; }
+      const me = (await meRes.json()).data;
+      if (me.role !== 'admin') { window.location.href = '/admin/login.html'; return; }
+      document.getElementById('admin-email').textContent = me.email;
+      await loadUsers();
+    })();
+
+    document.getElementById('btn-logout').addEventListener('click', async () => {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+      window.location.href = '/admin/login.html';
+    });
+  </script>
+</body>
+</html>

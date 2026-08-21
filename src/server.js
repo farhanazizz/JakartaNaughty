@@ -1,0 +1,240 @@
+/**
+ * ============================================================
+ * src/server.js — Entry Point Utama Aplikasi
+ * ============================================================
+ * File ini adalah titik awal yang dijalankan saat `node src/server.js`.
+ *
+ * Urutan startup:
+ *  1. Validasi environment variables
+ *  2. Inisialisasi database + buat tabel
+ *  3. Setup Express + semua middleware
+ *  4. Register semua routes API
+ *  5. Serve static files (frontend HTML)
+ *  6. Error handler global
+ *  7. Start HTTP server
+ *  8. Jalankan background workers (job queue + GPU refresh)
+ * ============================================================
+ */
+
+'use strict';
+
+const express      = require('express');
+const cookieParser = require('cookie-parser');
+const session      = require('express-session');
+const helmet       = require('helmet');
+const cors         = require('cors');
+const morgan       = require('morgan');
+const path         = require('path');
+const fs           = require('fs');
+
+// Konfigurasi & utilities
+const { validateEnv, config } = require('./config/env');
+const { initDb, closeDb }     = require('./config/database');
+const passport                = require('./config/passport');
+const { logger }              = require('./utils/logger');
+
+// Services
+const { startQueueWorker } = require('./services/jobQueue');
+const { refreshGpuPool }   = require('./services/vastai');
+
+// Middleware
+const { apiLimiter } = require('./middleware/rateLimiter');
+
+// Routes
+const authRoutes     = require('./routes/auth');
+const generateRoutes = require('./routes/generate');
+const jobsRoutes     = require('./routes/jobs');
+const userRoutes     = require('./routes/user');
+const adminRoutes    = require('./routes/admin/index');
+
+// ============================================================
+// LANGKAH 1: Validasi environment variables
+// ============================================================
+validateEnv();
+
+// ============================================================
+// LANGKAH 2: Setup Express
+// ============================================================
+const app = express();
+
+// --- Middleware Keamanan ---
+
+// Helmet: set security headers (XSS protection, HSTS, dll)
+// Konfigurasi CSP khusus agar Tailwind CDN bisa dimuat
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc:  ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com", "https://fonts.googleapis.com"],
+      styleSrc:   ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
+      fontSrc:    ["'self'", "https://fonts.gstatic.com"],
+      imgSrc:     ["'self'", "data:", "blob:"],
+      connectSrc: ["'self'"],
+    },
+  },
+}));
+
+// CORS: hanya allow same-origin (frontend dan backend satu domain)
+app.use(cors({ origin: false }));
+
+// --- Middleware Logging ---
+// Morgan format 'combined' mencatat semua request HTTP
+app.use(morgan('combined', {
+  stream: {
+    write: (message) => logger.info(message.trim()),
+  },
+}));
+
+// --- Middleware Parsing ---
+app.use(express.json({ limit: '1mb' }));            // Parse JSON body
+app.use(express.urlencoded({ extended: true }));     // Parse form data
+app.use(cookieParser());                             // Parse cookies
+
+// --- Session (dibutuhkan oleh Passport untuk OAuth) ---
+app.use(session({
+  secret:            config.session.secret,
+  resave:            false,
+  saveUninitialized: false,
+  cookie: {
+    secure:   config.isProduction, // Hanya HTTPS di production
+    httpOnly: true,
+    maxAge:   10 * 60 * 1000,      // 10 menit (session pendek, hanya untuk OAuth flow)
+  },
+}));
+
+// --- Passport (Google OAuth) ---
+app.use(passport.initialize());
+app.use(passport.session());
+
+// --- Rate Limiter Global untuk semua /api/* ---
+app.use('/api', apiLimiter);
+
+// ============================================================
+// LANGKAH 4: Register Routes API
+// ============================================================
+
+// Auth routes — login, logout, refresh, OAuth
+app.use('/api/auth', authRoutes);
+
+// OAuth callback URL menggunakan /auth (tanpa /api) sesuai Google console
+app.use('/auth', authRoutes);
+
+// User routes — generate, jobs, dashboard
+app.use('/api/generate', generateRoutes);
+app.use('/api/jobs',     jobsRoutes);
+app.use('/api/user',     userRoutes);
+
+// Admin routes — dilindungi oleh authMiddleware + adminAuthMiddleware
+app.use('/api/admin', adminRoutes);
+
+// ============================================================
+// LANGKAH 5: Serve static files (Frontend)
+// ============================================================
+// Serve folder public/ sebagai static files
+// Urutan penting: static HARUS setelah routes API
+app.use(express.static(path.join(__dirname, '..', 'public')));
+
+// Fallback: request ke /admin/* yang tidak ada → serve 404
+// (Jangan redirect ke index.html karena ini bukan SPA)
+
+// ============================================================
+// LANGKAH 6: Error Handler Global
+// ============================================================
+// HARUS punya 4 parameter (err, req, res, next) untuk dikenali Express sebagai error handler
+app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
+  logger.error(`Unhandled error [${req.method} ${req.path}]:`, err.message);
+
+  const status = err.status || err.statusCode || 500;
+
+  return res.status(status).json({
+    success: false,
+    // Di production, jangan tampilkan detail error ke client (keamanan)
+    message: config.isProduction
+      ? 'Terjadi kesalahan pada server.'
+      : err.message || 'Internal Server Error',
+  });
+});
+
+// ============================================================
+// LANGKAH 7: Pastikan folder yang dibutuhkan ada
+// ============================================================
+const requiredDirs = [
+  config.upload.uploadDir,   // uploads/
+  config.upload.outputDir,   // outputs/
+];
+
+requiredDirs.forEach((dir) => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+    logger.info(`Folder dibuat: ${dir}/`);
+  }
+});
+
+// ============================================================
+// LANGKAH 7: Inisialisasi Database & Start Server
+// ============================================================
+let server = null;
+
+async function startServer() {
+  try {
+    // Inisialisasi database SQLite WASM & tabel
+    await initDb();
+
+    const PORT = config.port;
+    server = app.listen(PORT, () => {
+      logger.info(`🚀 Server berjalan di http://localhost:${PORT}`);
+      logger.info(`   Mode: ${config.nodeEnv}`);
+      logger.info(`   Admin emails: ${config.adminEmails.join(', ') || '(tidak dikonfigurasi)'}`);
+
+      // Background workers
+      startQueueWorker();
+
+      setInterval(() => {
+        refreshGpuPool().catch((err) => logger.warn('GPU refresh gagal:', err.message));
+      }, config.vastai.cacheTtlSeconds * 1000);
+
+      refreshGpuPool().catch((err) => logger.warn('Initial GPU refresh gagal:', err.message));
+    });
+  } catch (err) {
+    logger.error('Gagal memulai server:', err);
+    process.exit(1);
+  }
+}
+
+startServer();
+
+// ============================================================
+// Graceful Shutdown
+// Tangkap sinyal SIGTERM (dari Docker/systemd/Coolify) dan
+// SIGINT (Ctrl+C) untuk tutup server dengan bersih
+// ============================================================
+function gracefulShutdown(signal) {
+  logger.info(`Menerima sinyal ${signal} — memulai graceful shutdown...`);
+
+  server.close(() => {
+    logger.info('HTTP server ditutup');
+    closeDb();
+    logger.info('Database ditutup. Bye! 👋');
+    process.exit(0);
+  });
+
+  // Force exit jika shutdown terlalu lama (10 detik)
+  setTimeout(() => {
+    logger.error('Graceful shutdown timeout — force exit');
+    process.exit(1);
+  }, 10000);
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT',  () => gracefulShutdown('SIGINT'));
+
+// Handle uncaught exceptions — log dan lanjut (jangan crash server)
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  logger.error('Unhandled Rejection:', reason);
+});
+
+module.exports = app; // Export untuk testing

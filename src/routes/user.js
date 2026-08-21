@@ -1,0 +1,87 @@
+/**
+ * ============================================================
+ * src/routes/user.js — Routes Dashboard User
+ * ============================================================
+ * Endpoints:
+ *   GET /api/user/dashboard — Data untuk halaman dashboard
+ *   GET /api/user/history   — History generate lengkap
+ * ============================================================
+ */
+
+'use strict';
+
+const express = require('express');
+const { getDb } = require('../config/database');
+const authMiddleware = require('../middleware/auth');
+
+const router = express.Router();
+
+// ============================================================
+// GET /api/user/dashboard — Data ringkasan untuk dashboard
+// ============================================================
+router.get('/dashboard', authMiddleware, (req, res) => {
+  const db = getDb();
+
+  // Ambil saldo kredit terbaru
+  const user = db.prepare(
+    'SELECT credits, email FROM users WHERE id = ? AND is_active = 1'
+  ).get(req.user.id);
+
+  if (!user) {
+    return res.status(404).json({ success: false, message: 'User tidak ditemukan.' });
+  }
+
+  // Ambil 5 job terbaru untuk ditampilkan di dashboard
+  const recentJobs = db.prepare(`
+    SELECT
+      id, status, source_image_name, positive_prompt,
+      credits_used, error_message, created_at, completed_at,
+      output_filename, seed
+    FROM jobs
+    WHERE user_id = ?
+    ORDER BY created_at DESC
+    LIMIT 5
+  `).all(req.user.id);
+
+  return res.json({
+    success: true,
+    data: {
+      email:      user.email,
+      credits:    user.credits,
+      recentJobs,
+    },
+  });
+});
+
+// ============================================================
+// GET /api/user/history — History lengkap dengan pagination
+// ============================================================
+router.get('/history', authMiddleware, (req, res) => {
+  const db     = getDb();
+  const limit  = Math.min(parseInt(req.query.limit) || 20, 100);
+  const offset = parseInt(req.query.offset) || 0;
+
+  const jobs = db.prepare(`
+    SELECT
+      id, status, source_image_name, positive_prompt, negative_prompt,
+      seed, credits_used, error_message, created_at, started_at, completed_at
+    FROM jobs
+    WHERE user_id = ?
+    ORDER BY created_at DESC
+    LIMIT ? OFFSET ?
+  `).all(req.user.id, limit, offset);
+
+  const total = db.prepare(
+    'SELECT COUNT(*) as count FROM jobs WHERE user_id = ?'
+  ).get(req.user.id);
+
+  return res.json({
+    success: true,
+    data: {
+      jobs,
+      pagination: { limit, offset, total: total.count },
+    },
+  });
+});
+
+module.exports = router;

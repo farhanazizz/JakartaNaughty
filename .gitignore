@@ -1,0 +1,34 @@
+# ============================================================
+# .gitignore — File dan folder yang diabaikan oleh Git
+# ============================================================
+
+# Environment variables (RAHASIA - jangan pernah di-commit!)
+.env
+
+# Dependencies Node.js
+node_modules/
+
+# Folder upload sementara (gambar yang diupload user)
+uploads/*
+!uploads/.gitkeep
+
+# Folder output gambar hasil generate
+outputs/*
+!outputs/.gitkeep
+
+# File database SQLite
+*.sqlite
+*.sqlite3
+*.db
+
+# Log files
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
