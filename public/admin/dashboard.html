@@ -661,6 +661,7 @@
 
     function showToast(message, type = 'success') {
       const container = document.getElementById('toast-container');
+      if (!container) return;
       const toast = document.createElement('div');
       const bgColors = {
         success: 'bg-[#165823] text-emerald-100 border border-emerald-500/40',
@@ -686,16 +687,26 @@
       tabs.forEach(t => {
         const btn = document.getElementById(`tab-btn-${t}`);
         const pane = document.getElementById(`pane-${t}`);
-        if (!btn || !pane) return;
+        if (!pane) return;
         if (t === tabId) {
-          btn.className = 'w-full flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all text-brand bg-brand/10 border border-brand/20 font-bold';
-          btn.querySelector('svg').classList.add('text-brand');
-          btn.querySelector('svg').classList.remove('text-slate-400');
+          if (btn) {
+            btn.className = 'w-full flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all text-brand bg-brand/10 border border-brand/20 font-bold';
+            const svg = btn.querySelector('svg');
+            if (svg) {
+              svg.classList.add('text-brand');
+              svg.classList.remove('text-slate-400');
+            }
+          }
           pane.classList.remove('hidden');
         } else {
-          btn.className = 'w-full flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all text-slate-400 hover:text-white hover:bg-slate-800/60 border border-transparent font-medium';
-          btn.querySelector('svg').classList.remove('text-brand');
-          btn.querySelector('svg').classList.add('text-slate-400');
+          if (btn) {
+            btn.className = 'w-full flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all text-slate-400 hover:text-white hover:bg-slate-800/60 border border-transparent font-medium';
+            const svg = btn.querySelector('svg');
+            if (svg) {
+              svg.classList.remove('text-brand');
+              svg.classList.add('text-slate-400');
+            }
+          }
           pane.classList.add('hidden');
         }
       });
@@ -708,8 +719,30 @@
       if (tabId === 'history') loadHistoryJobs();
     }
 
-    function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
-    function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+    function openModal(id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('hidden');
+    }
+    function closeModal(id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('hidden');
+    }
+
+    // Explicit Window Bindings for CSP and global access
+    window.switchTab = switchTab;
+    window.openModal = openModal;
+    window.closeModal = closeModal;
+    window.showToast = showToast;
+
+    // Attach direct listeners on DOM load
+    document.addEventListener('DOMContentLoaded', () => {
+      ['overview', 'users', 'credits', 'security', 'gpu', 'history'].forEach(tab => {
+        const btn = document.getElementById(`tab-btn-${tab}`);
+        if (btn) {
+          btn.addEventListener('click', () => switchTab(tab));
+        }
+      });
+    });
 
     (async function init() {
       try {
@@ -717,7 +750,8 @@
         if (res.ok) {
           const d = await res.json();
           currentAdmin = d.data;
-          document.getElementById('admin-email-display').textContent = currentAdmin.username || currentAdmin.email;
+          const displayEl = document.getElementById('admin-email-display');
+          if (displayEl) displayEl.textContent = currentAdmin.username || currentAdmin.email;
         }
         await refreshDashboard();
       } catch (err) {
@@ -1218,6 +1252,29 @@
       div.textContent = str;
       return div.innerHTML;
     }
+
+    // Global Window Bindings for all actions
+    window.switchTab = switchTab;
+    window.openModal = openModal;
+    window.closeModal = closeModal;
+    window.showToast = showToast;
+    window.refreshDashboard = refreshDashboard;
+    window.loadUsersTable = loadUsersTable;
+    window.toggleSuspend = toggleSuspend;
+    window.openCreateUserModal = openCreateUserModal;
+    window.handleCreateUser = handleCreateUser;
+    window.openResetPasswordModal = openResetPasswordModal;
+    window.handleResetPassword = handleResetPassword;
+    window.loadCreditsTable = loadCreditsTable;
+    window.quickAddCredit = quickAddCredit;
+    window.openCreditModal = openCreditModal;
+    window.handleCreditAction = handleCreditAction;
+    window.loadSecurityLogs = loadSecurityLogs;
+    window.loadGpuStatus = loadGpuStatus;
+    window.pingSpecificUrl = pingSpecificUrl;
+    window.testComfyPing = testComfyPing;
+    window.loadHistoryJobs = loadHistoryJobs;
+    window.logoutAdmin = logoutAdmin;
   </script>
 </body>
 </html>
