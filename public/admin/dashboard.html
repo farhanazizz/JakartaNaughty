@@ -41,6 +41,10 @@
     }
     body.authorized { opacity: 1; }
 
+    button, a, select, input {
+      cursor: pointer;
+    }
+
     .glass-card {
       background: rgba(15, 23, 42, 0.7);
       backdrop-filter: blur(12px);
@@ -117,15 +121,15 @@
 
       <!-- Navigation Tabs -->
       <nav class="p-3 space-y-1.5 text-sm font-medium">
-        <button onclick="switchTab('overview')" id="tab-btn-overview"
-          class="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all text-brand bg-brand/10 border border-brand/20">
+        <button type="button" onclick="switchTab('overview')" id="tab-btn-overview"
+          class="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all text-brand bg-brand/10 border border-brand/20 font-bold">
           <svg class="w-5 h-5 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
           </svg>
           Overview
         </button>
 
-        <button onclick="switchTab('users')" id="tab-btn-users"
+        <button type="button" onclick="switchTab('users')" id="tab-btn-users"
           class="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all text-slate-400 hover:text-white hover:bg-slate-800/60 border border-transparent">
           <svg class="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
@@ -133,7 +137,7 @@
           Kelola User
         </button>
 
-        <button onclick="switchTab('credits')" id="tab-btn-credits"
+        <button type="button" onclick="switchTab('credits')" id="tab-btn-credits"
           class="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all text-slate-400 hover:text-white hover:bg-slate-800/60 border border-transparent">
           <svg class="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -141,7 +145,7 @@
           Kelola Kredit
         </button>
 
-        <button onclick="switchTab('security')" id="tab-btn-security"
+        <button type="button" onclick="switchTab('security')" id="tab-btn-security"
           class="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all text-slate-400 hover:text-white hover:bg-slate-800/60 border border-transparent">
           <svg class="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
@@ -149,7 +153,7 @@
           Security & Logs
         </button>
 
-        <button onclick="switchTab('gpu')" id="tab-btn-gpu"
+        <button type="button" onclick="switchTab('gpu')" id="tab-btn-gpu"
           class="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all text-slate-400 hover:text-white hover:bg-slate-800/60 border border-transparent">
           <svg class="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
@@ -157,7 +161,7 @@
           GPU Fleet Monitor
         </button>
 
-        <button onclick="switchTab('history')" id="tab-btn-history"
+        <button type="button" onclick="switchTab('history')" id="tab-btn-history"
           class="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all text-slate-400 hover:text-white hover:bg-slate-800/60 border border-transparent">
           <svg class="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -178,7 +182,7 @@
           <div class="text-[10px] text-emerald-400 font-medium">● Super Administrator</div>
         </div>
       </div>
-      <button onclick="logoutAdmin()" class="w-full py-2 px-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-colors">
+      <button type="button" onclick="logoutAdmin()" class="w-full py-2 px-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-colors">
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
         </svg>
@@ -199,8 +203,8 @@
           <h2 class="text-2xl font-extrabold text-white tracking-tight">Overview Dashboard</h2>
           <p class="text-xs text-slate-400 mt-1">Pantau performa studio, user aktif, antrian rendering, dan GPU fleet.</p>
         </div>
-        <button onclick="refreshDashboard()" class="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold border border-slate-700 transition-colors">
-          <svg id="refresh-icon" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <button type="button" onclick="refreshDashboard()" class="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold border border-slate-700 transition-colors">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
           </svg>
           Perbarui Data
@@ -279,14 +283,17 @@
           <p class="text-xs text-slate-400">Pintasan instan untuk aksi harian tanpa repot.</p>
         </div>
         <div class="flex flex-wrap gap-2.5">
-          <button onclick="openCreateUserModal()" class="px-4 py-2 bg-gradient-to-r from-[#FF788D] to-[#e0536b] hover:opacity-90 text-white rounded-xl text-xs font-semibold shadow-lg shadow-[#FF788D]/20 transition-all flex items-center gap-1.5">
+          <button type="button" onclick="openCreateUserModal()" class="px-4 py-2 bg-gradient-to-r from-[#FF788D] to-[#e0536b] hover:opacity-90 text-white rounded-xl text-xs font-semibold shadow-lg shadow-[#FF788D]/20 transition-all flex items-center gap-1.5">
             <span>+</span> Tambah User Baru
           </button>
-          <button onclick="switchTab('credits')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold border border-slate-700 transition-colors">
+          <button type="button" onclick="switchTab('credits')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold border border-slate-700 transition-colors">
             💰 Kelola Saldo Kredit
           </button>
-          <button onclick="switchTab('security')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold border border-slate-700 transition-colors">
+          <button type="button" onclick="switchTab('security')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold border border-slate-700 transition-colors">
             🔒 Pantau User-Agent & IP
+          </button>
+          <button type="button" onclick="switchTab('gpu')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold border border-slate-700 transition-colors">
+            ⚡ GPU Fleet Status
           </button>
         </div>
       </div>
@@ -298,7 +305,7 @@
             <span class="w-2 h-2 rounded-full bg-brand animate-pulse"></span>
             Aktivitas Generate Terbaru (Live Stream)
           </h3>
-          <button onclick="switchTab('history')" class="text-xs text-brand hover:underline font-medium">Lihat Semua →</button>
+          <button type="button" onclick="switchTab('history')" class="text-xs text-brand hover:underline font-medium">Lihat Semua →</button>
         </div>
         <div class="overflow-x-auto">
           <table class="w-full text-left text-xs">
@@ -328,7 +335,7 @@
           <h2 class="text-2xl font-extrabold text-white tracking-tight">Manajemen User</h2>
           <p class="text-xs text-slate-400 mt-1">Kelola akun pelanggan, atur saldo kredit, suspend/unsuspend, dan reset password.</p>
         </div>
-        <button onclick="openCreateUserModal()" class="px-4 py-2.5 bg-gradient-to-r from-[#FF788D] to-[#e0536b] hover:opacity-90 text-white rounded-xl text-xs font-bold shadow-lg shadow-[#FF788D]/25 transition-all flex items-center gap-2">
+        <button type="button" onclick="openCreateUserModal()" class="px-4 py-2.5 bg-gradient-to-r from-[#FF788D] to-[#e0536b] hover:opacity-90 text-white rounded-xl text-xs font-bold shadow-lg shadow-[#FF788D]/25 transition-all flex items-center gap-2">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
           </svg>
@@ -342,10 +349,10 @@
           <svg class="w-4 h-4 text-slate-500 absolute left-3.5 top-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
           </svg>
-          <input type="text" id="user-search-input" placeholder="Cari berdasarkan username..."
+          <input type="text" id="user-search-input" placeholder="username"
             class="w-full pl-10 pr-4 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand" />
         </div>
-        <button onclick="loadUsersTable()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold border border-slate-700 transition-colors">
+        <button type="button" onclick="loadUsersTable()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold border border-slate-700 transition-colors">
           Cari
         </button>
       </div>
@@ -434,7 +441,7 @@
           <h2 class="text-2xl font-extrabold text-white tracking-tight">🔒 Security & User-Agent Monitor</h2>
           <p class="text-xs text-slate-400 mt-1">Pantau IP address, User-Agent browser/perangkat, dan aktivitas mencurigakan secara realtime.</p>
         </div>
-        <button onclick="loadSecurityLogs()" class="px-4 py-2 bg-brand/10 hover:bg-brand/20 text-brand rounded-xl text-xs font-semibold border border-brand/30 transition-colors flex items-center gap-1.5">
+        <button type="button" onclick="loadSecurityLogs()" class="px-4 py-2 bg-brand/10 hover:bg-brand/20 text-brand rounded-xl text-xs font-semibold border border-brand/30 transition-colors flex items-center gap-1.5">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
           </svg>
@@ -476,7 +483,7 @@
           <h2 class="text-2xl font-extrabold text-white tracking-tight">GPU Fleet & ComfyUI Monitor</h2>
           <p class="text-xs text-slate-400 mt-1">Status instansi Vast.ai, antrian ComfyUI, dan live health diagnostic.</p>
         </div>
-        <button onclick="loadGpuStatus()" class="px-4 py-2 bg-brand/10 hover:bg-brand/20 text-brand rounded-xl text-xs font-semibold border border-brand/30 transition-colors flex items-center gap-1.5">
+        <button type="button" onclick="loadGpuStatus()" class="px-4 py-2 bg-brand/10 hover:bg-brand/20 text-brand rounded-xl text-xs font-semibold border border-brand/30 transition-colors flex items-center gap-1.5">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
           </svg>
@@ -489,9 +496,9 @@
         <h3 class="font-bold text-sm text-white mb-1">🛠️ Alat Uji Koneksi ComfyUI (Live Ping Tester)</h3>
         <p class="text-xs text-slate-400 mb-4">Uji apakah URL ComfyUI dapat diakses dan merespon dalam hitungan milidetik.</p>
         <div class="flex flex-col sm:flex-row gap-3">
-          <input type="text" id="ping-url-input" placeholder="http://ip_atau_domain:port"
+          <input type="text" id="ping-url-input" placeholder="http://151.237.25.16:21875"
             class="flex-1 px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand" />
-          <button onclick="testComfyPing()" id="btn-ping-test"
+          <button type="button" onclick="testComfyPing()" id="btn-ping-test"
             class="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold border border-slate-600 transition-colors flex items-center justify-center gap-2">
             <span>⚡ Uji Ping</span>
           </button>
@@ -516,7 +523,7 @@
           <h2 class="text-2xl font-extrabold text-white tracking-tight">Riwayat Generate Global</h2>
           <p class="text-xs text-slate-400 mt-1">Daftar semua gambar yang di-generate oleh seluruh user.</p>
         </div>
-        <button onclick="loadHistoryJobs()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold border border-slate-700">
+        <button type="button" onclick="loadHistoryJobs()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold border border-slate-700">
           Perbarui
         </button>
       </div>
@@ -553,18 +560,18 @@
           <span class="w-2.5 h-2.5 rounded-full bg-brand"></span>
           Tambah User Baru
         </h3>
-        <button onclick="closeModal('modal-create-user')" class="text-slate-400 hover:text-white text-lg">✕</button>
+        <button type="button" onclick="closeModal('modal-create-user')" class="text-slate-400 hover:text-white text-lg">✕</button>
       </div>
 
       <form id="form-create-user" onsubmit="handleCreateUser(event)" class="space-y-4 text-xs">
         <div>
-          <label class="block font-medium text-slate-300 mb-1">Username Pelanggan</label>
-          <input type="text" id="create-user-username" required placeholder="username_pelanggan" minlength="3"
+          <label class="block font-medium text-slate-300 mb-1">Username</label>
+          <input type="text" id="create-user-username" required placeholder="username" minlength="3"
             class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-brand" />
         </div>
         <div>
-          <label class="block font-medium text-slate-300 mb-1">Password Awal (Min. 6 Karakter)</label>
-          <input type="text" id="create-user-password" required placeholder="password123" minlength="6"
+          <label class="block font-medium text-slate-300 mb-1">Password (Min. 6 Karakter)</label>
+          <input type="text" id="create-user-password" required placeholder="password" minlength="6"
             class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-brand" />
         </div>
         <div>
@@ -591,7 +598,7 @@
     <div class="glass-card rounded-2xl max-w-sm w-full p-6 relative border border-slate-700 shadow-2xl">
       <div class="flex items-center justify-between mb-4">
         <h3 class="font-bold text-base text-white">🔑 Reset Password User</h3>
-        <button onclick="closeModal('modal-reset-password')" class="text-slate-400 hover:text-white">✕</button>
+        <button type="button" onclick="closeModal('modal-reset-password')" class="text-slate-400 hover:text-white">✕</button>
       </div>
       <form id="form-reset-password" onsubmit="handleResetPassword(event)" class="space-y-4 text-xs">
         <input type="hidden" id="reset-user-id" />
@@ -601,7 +608,7 @@
         </div>
         <div>
           <label class="block font-medium text-slate-300 mb-1">Password Baru (Min. 6 Karakter)</label>
-          <input type="text" id="reset-new-password" required minlength="6" placeholder="Masukkan password baru..."
+          <input type="text" id="reset-new-password" required minlength="6" placeholder="password baru"
             class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-brand" />
         </div>
         <div class="flex gap-2.5 pt-2">
@@ -619,7 +626,7 @@
     <div class="glass-card rounded-2xl max-w-sm w-full p-6 relative border border-slate-700 shadow-2xl">
       <div class="flex items-center justify-between mb-4">
         <h3 class="font-bold text-base text-white" id="modal-credit-title">💰 Atur Kredit</h3>
-        <button onclick="closeModal('modal-credit-action')" class="text-slate-400 hover:text-white">✕</button>
+        <button type="button" onclick="closeModal('modal-credit-action')" class="text-slate-400 hover:text-white">✕</button>
       </div>
       <form id="form-credit-action" onsubmit="handleCreditAction(event)" class="space-y-4 text-xs">
         <input type="hidden" id="credit-action-user-id" />
@@ -635,7 +642,7 @@
         </div>
         <div>
           <label class="block font-medium text-slate-300 mb-1">Alasan / Catatan Wajib</label>
-          <input type="text" id="credit-action-reason" required placeholder="Contoh: Top-up paket 25 foto via Transfer"
+          <input type="text" id="credit-action-reason" required placeholder="Top-up paket foto"
             class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-brand" />
         </div>
         <div class="flex gap-2.5 pt-2">
@@ -802,16 +809,16 @@
               <td class="py-3.5 px-4 text-slate-400 text-[11px]">${new Date(u.created_at).toLocaleDateString('id-ID')}</td>
               <td class="py-3.5 px-4 text-right">
                 <div class="flex items-center justify-end gap-1.5">
-                  <button onclick="openCreditModal('${u.id}', '${escapeHtml(u.email)}', 'add')" title="Tambah Kredit"
+                  <button type="button" onclick="openCreditModal('${u.id}', '${escapeHtml(u.email)}', 'add')" title="Tambah Kredit"
                     class="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 rounded-lg text-xs font-bold border border-emerald-500/30">
                     + Kredit
                   </button>
-                  <button onclick="openResetPasswordModal('${u.id}', '${escapeHtml(u.email)}')" title="Reset Password"
+                  <button type="button" onclick="openResetPasswordModal('${u.id}', '${escapeHtml(u.email)}')" title="Reset Password"
                     class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs border border-slate-700">
                     🔑
                   </button>
                   ${!isSelf ? `
-                    <button onclick="toggleSuspend('${u.id}', ${u.is_active === 2 ? 'false' : 'true'})"
+                    <button type="button" onclick="toggleSuspend('${u.id}', ${u.is_active === 2 ? 'false' : 'true'})"
                       class="px-2.5 py-1 rounded-lg text-xs font-bold ${u.is_active === 2 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-red-500/15 text-red-400 hover:bg-red-500/30 border border-red-500/30'}">
                       ${u.is_active === 2 ? 'Unsuspend' : 'Suspend'}
                     </button>
@@ -939,10 +946,10 @@
             </td>
             <td class="py-3.5 px-4 text-right">
               <div class="flex items-center justify-end gap-1.5">
-                <button onclick="quickAddCredit('${u.id}', 10, '${escapeHtml(u.email)}')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold border border-slate-700">+10</button>
-                <button onclick="quickAddCredit('${u.id}', 50, '${escapeHtml(u.email)}')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold border border-slate-700">+50</button>
-                <button onclick="quickAddCredit('${u.id}', 100, '${escapeHtml(u.email)}')" class="px-2 py-1 bg-brand/10 hover:bg-brand/20 text-brand rounded-lg text-xs font-bold border border-brand/30">+100</button>
-                <button onclick="openCreditModal('${u.id}', '${escapeHtml(u.email)}', 'deduct')" class="px-2 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-xs font-bold border border-red-500/30">- Potong</button>
+                <button type="button" onclick="quickAddCredit('${u.id}', 10, '${escapeHtml(u.email)}')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold border border-slate-700">+10</button>
+                <button type="button" onclick="quickAddCredit('${u.id}', 50, '${escapeHtml(u.email)}')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold border border-slate-700">+50</button>
+                <button type="button" onclick="quickAddCredit('${u.id}', 100, '${escapeHtml(u.email)}')" class="px-2 py-1 bg-brand/10 hover:bg-brand/20 text-brand rounded-lg text-xs font-bold border border-brand/30">+100</button>
+                <button type="button" onclick="openCreditModal('${u.id}', '${escapeHtml(u.email)}', 'deduct')" class="px-2 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-xs font-bold border border-red-500/30">- Potong</button>
               </div>
             </td>
           </tr>
@@ -1099,7 +1106,7 @@
                 <h4 class="font-black text-white text-base mt-2">${escapeHtml(g.gpuName)}</h4>
                 <p class="text-xs text-slate-400 font-mono mt-0.5">${escapeHtml(g.url)}</p>
               </div>
-              <button onclick="pingSpecificUrl('${escapeHtml(g.url)}')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold border border-slate-700">
+              <button type="button" onclick="pingSpecificUrl('${escapeHtml(g.url)}', '${escapeHtml(g.token || '')}')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold border border-slate-700">
                 ⚡ Test Ping
               </button>
             </div>
@@ -1114,8 +1121,8 @@
       }
     }
 
-    function pingSpecificUrl(url) {
-      document.getElementById('ping-url-input').value = url;
+    function pingSpecificUrl(url, token) {
+      document.getElementById('ping-url-input').value = token ? `${url}?token=${token}` : url;
       testComfyPing();
     }
 
@@ -1147,7 +1154,7 @@
           box.className = 'mt-3 p-3.5 rounded-xl text-xs bg-[#165823]/30 border border-emerald-500/40 text-emerald-300';
           box.innerHTML = `
             <div class="font-bold text-sm text-emerald-200">✅ Terkoneksi Sukses (${d.latencyMs} ms)</div>
-            <div class="mt-1 text-slate-300">ComfyUI Versi: ${d.systemStats.comfyui_version} | Antrian Saat Ini: ${d.queueCount} job</div>
+            <div class="mt-1 text-slate-300">ComfyUI Versi: ${d.systemStats?.comfyui_version || 'Active'} | Antrian Saat Ini: ${d.queueCount || 0} job</div>
           `;
           showToast(`GPU merespon dalam ${d.latencyMs}ms!`, 'success');
         } else {

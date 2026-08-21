@@ -50,11 +50,15 @@ router.post('/ping', async (req, res) => {
       return res.status(400).json({ success: false, message: 'URL ComfyUI tidak valid.' });
     }
 
-    const cleanUrl = url.replace(/\/+$/, '');
+    const urlObj = new URL(url);
+    const token = urlObj.searchParams.get('token') || req.body.token || '';
+    const baseUrl = `${urlObj.protocol}//${urlObj.host}`;
     const startTime = Date.now();
 
-    const response = await fetch(`${cleanUrl}/system_stats`, {
-      timeout: 5000,
+    const statsUrl = token ? `${baseUrl}/system_stats?token=${token}` : `${baseUrl}/system_stats`;
+    const response = await fetch(statsUrl, {
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      timeout: 6000,
     });
 
     const latencyMs = Date.now() - startTime;
@@ -69,7 +73,12 @@ router.post('/ping', async (req, res) => {
     }
 
     const data = await response.json();
-    const queueRes = await fetch(`${cleanUrl}/queue`, { timeout: 3000 }).catch(() => null);
+    const queueUrl = token ? `${baseUrl}/queue?token=${token}` : `${baseUrl}/queue`;
+    const queueRes = await fetch(queueUrl, {
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      timeout: 3000,
+    }).catch(() => null);
+
     let queueCount = 0;
     if (queueRes && queueRes.ok) {
       const qData = await queueRes.json();
