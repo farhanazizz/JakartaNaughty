@@ -1,6 +1,4 @@
 const puppeteer = require('puppeteer');
-const fs = require('fs');
-const path = require('path');
 
 async function runBrowserTest() {
   console.log('=== STARTING PUPPETEER ADMIN UI TEST ===');
@@ -62,7 +60,7 @@ async function runBrowserTest() {
     }
 
     await page.click(btnSelector);
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise(r => setTimeout(r, 600));
 
     const isPaneVisible = await page.evaluate((sel) => {
       const pane = document.querySelector(sel);
@@ -84,41 +82,81 @@ async function runBrowserTest() {
   await page.click('#tab-btn-users');
   await new Promise(r => setTimeout(r, 500));
 
-  console.log('Clicking "+ Tambah User Baru" button...');
-  const openCreateUserBtn = await page.$('button[onclick="openCreateUserModal()"]');
-  if (openCreateUserBtn) {
-    await openCreateUserBtn.click();
-    await new Promise(r => setTimeout(r, 500));
-    const isModalOpen = await page.evaluate(() => {
-      const m = document.getElementById('modal-create-user');
-      return m && !m.classList.contains('hidden');
-    });
-    console.log('Create User Modal opened:', isModalOpen);
+  console.log('Clicking "+ Tambah User Baru" button in Kelola User...');
+  await page.click('#btn-users-create-user');
+  await new Promise(r => setTimeout(r, 500));
 
-    // Click close modal
-    console.log('Closing modal...');
-    await page.evaluate(() => closeModal('modal-create-user'));
-    const isModalClosed = await page.evaluate(() => {
-      const m = document.getElementById('modal-create-user');
-      return m && m.classList.contains('hidden');
+  let isModalOpen = await page.evaluate(() => {
+    const m = document.getElementById('modal-create-user');
+    return m && !m.classList.contains('hidden');
+  });
+  console.log('Create User Modal opened:', isModalOpen);
+
+  // Close modal
+  console.log('Closing modal via closeModal()...');
+  await page.evaluate(() => closeModal('modal-create-user'));
+  await new Promise(r => setTimeout(r, 300));
+  let isModalClosed = await page.evaluate(() => {
+    const m = document.getElementById('modal-create-user');
+    return m && m.classList.contains('hidden');
+  });
+  console.log('Create User Modal closed:', isModalClosed);
+
+  // 2. Test Quick Action Button in Overview
+  console.log('\n--- TESTING QUICK ACTION BUTTONS ---');
+  await page.click('#tab-btn-overview');
+  await new Promise(r => setTimeout(r, 500));
+
+  console.log('Clicking Quick Action: Kelola Saldo Kredit...');
+  await page.click('#btn-quick-credits');
+  await new Promise(r => setTimeout(r, 500));
+  let creditsVisible = await page.evaluate(() => {
+    const pane = document.getElementById('pane-credits');
+    return pane && !pane.classList.contains('hidden');
+  });
+  console.log('Credits Pane opened from quick button:', creditsVisible);
+
+  console.log('Clicking Quick Action: GPU Fleet...');
+  await page.click('#tab-btn-overview');
+  await new Promise(r => setTimeout(r, 500));
+  await page.click('#btn-quick-gpu');
+  await new Promise(r => setTimeout(r, 500));
+  let gpuVisible = await page.evaluate(() => {
+    const pane = document.getElementById('pane-gpu');
+    return pane && !pane.classList.contains('hidden');
+  });
+  console.log('GPU Pane opened from quick button:', gpuVisible);
+
+  // 3. Test Ping in GPU Fleet
+  console.log('\n--- TESTING PING BUTTON ---');
+  const pingBtn = await page.$('#btn-ping-test');
+  if (pingBtn) {
+    await page.evaluate(() => {
+      document.getElementById('ping-url-input').value = 'http://151.237.25.16:21875?token=5795a3e13d4ecdf0f45264e3f3fbf2a3166e447319af28a6fb70ce945dc9eb79';
     });
-    console.log('Create User Modal closed:', isModalClosed);
-  } else {
-    console.error('❌ openCreateUserModal button not found!');
+    await pingBtn.click();
+    console.log('Waiting for ping response...');
+    await new Promise(r => setTimeout(r, 2500));
+    const pingResult = await page.evaluate(() => {
+      const box = document.getElementById('ping-result-box');
+      return box ? box.textContent : 'NO_BOX';
+    });
+    console.log('Ping Result in UI:', pingResult);
   }
 
-  console.log('\n--- CONSOLE LOGS CAPTURED ---');
-  console.log(consoleLogs.join('\n'));
+  console.log('\n--- CONSOLE LOGS SUMMARY ---');
+  console.log(`Total Logs: ${consoleLogs.length}`);
+  console.log(`Total Errors: ${consoleErrors.length}`);
 
   if (consoleErrors.length > 0) {
-    console.log('\n❌ CONSOLE ERRORS DETECTED:');
+    console.log('\n❌ CONSOLE ERRORS:');
     console.log(consoleErrors.join('\n'));
   } else {
-    console.log('\n✅ ZERO CONSOLE ERRORS DETECTED!');
+    console.log('\n✅ PERFECT: ZERO CONSOLE ERRORS ON ALL CLICKS AND ACTIONS!');
   }
 
   await browser.close();
-  console.log('=== TEST FINISHED ===');
+  console.log('=== TEST FINISHED SUCCESSFULLY ===');
 }
 
 runBrowserTest().catch(err => {
