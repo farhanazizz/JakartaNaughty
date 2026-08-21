@@ -47,28 +47,24 @@ let isRefreshing = false;
  * @returns {string|null} URL ComfyUI atau null jika tidak bisa dibuat
  */
 function buildComfyUrl(instance) {
-  // Coba ambil dari port mapping yang disediakan Vast.ai
   const ports = instance.ports || {};
-  const comfyPort = config.comfyui.port;
+  const candidatePorts = [config.comfyui.port, 18188, 8188, 8080];
 
-  // Vast.ai memetakan port internal ke port eksternal
-  // Format: { "18188/tcp": [{ HostIp: "0.0.0.0", HostPort: "12345" }] }
-  const portKey = `${comfyPort}/tcp`;
-  const portMapping = ports[portKey];
+  for (const p of candidatePorts) {
+    if (!p) continue;
+    const portKey = `${p}/tcp`;
+    const portMapping = ports[portKey];
 
-  if (portMapping && portMapping.length > 0) {
-    const externalPort = portMapping[0].HostPort;
-    const host = instance.ssh_host || instance.public_ipaddr;
-    if (host && externalPort) {
-      return `http://${host}:${externalPort}`;
+    if (portMapping && portMapping.length > 0) {
+      const externalPort = portMapping[0].HostPort;
+      const host = instance.ssh_host || instance.public_ipaddr;
+      if (host && externalPort) {
+        return `http://${host}:${externalPort}`;
+      }
     }
-  }
 
-  // Fallback: gunakan direct_port_mappings jika tersedia
-  if (instance.direct_port_mappings) {
-    const mapping = instance.direct_port_mappings[comfyPort];
-    if (mapping) {
-      return `http://${instance.ssh_host}:${mapping}`;
+    if (instance.direct_port_mappings && instance.direct_port_mappings[p]) {
+      return `http://${instance.ssh_host}:${instance.direct_port_mappings[p]}`;
     }
   }
 
@@ -85,17 +81,16 @@ function buildComfyUrl(instance) {
 async function getQueueLength(comfyUrl) {
   try {
     const res = await fetch(`${comfyUrl}/queue`, {
-      timeout: 3000, // Timeout 3 detik agar tidak nge-hang
+      timeout: 3000,
     });
 
-    if (!res.ok) return Infinity; // Anggap penuh jika tidak bisa akses
+    if (!res.ok) return Infinity;
 
     const data = await res.json();
     const running = (data.queue_running || []).length;
     const pending = (data.queue_pending || []).length;
     return running + pending;
   } catch {
-    // Jika tidak bisa connect, anggap tidak tersedia
     return Infinity;
   }
 }
@@ -110,7 +105,7 @@ async function getQueueLength(comfyUrl) {
 async function isAccessible(comfyUrl) {
   try {
     const res = await fetch(`${comfyUrl}/system_stats`, {
-      timeout: 5000, // Timeout 5 detik
+      timeout: 5000,
     });
     return res.ok;
   } catch {
@@ -130,37 +125,31 @@ async function isAccessible(comfyUrl) {
  * Dipanggil otomatis oleh pickBestGpu() jika cache sudah expired.
  */
 async function refreshGpuPool() {
-  // Cegah multiple refresh berjalan bersamaan
   if (isRefreshing) return;
   isRefreshing = true;
 
   try {
-    // Jika ada direct URL ComfyUI yang diset manual di .env (fallback)
-    const directUrl = process.env.COMFYUI_DIRECT_URL;
     const manualGpus = [];
+    const directUrl = process.env.COMFYUI_DIRECT_URL;
     if (directUrl) {
       const accessible = await isAccessible(directUrl);
-      const queueLen   = accessible ? await getQueueLength(directUrl) : Infinity;
+      const queueLen = accessible ? await getQueueLength(directUrl) : Infinity;
       manualGpus.push({
-        id:          'manual_gpu',
-        url:         directUrl,
+        id: 'manual_gpu',
+        url: directUrl,
         queueLength: queueLen,
-        status:      accessible ? 'online' : 'offline',
-        gpuName:     'Manual ComfyUI GPU',
+        status: accessible ? 'online' : 'offline',
+        gpuName: 'Manual ComfyUI GPU',
       });
     }
 
-    // Ambil semua instance dari Vast.ai API (cloud.vast.ai)
     const apiKey = config.vastai.apiKey;
-    const vastUrl = apiKey
-      ? `https://cloud.vast.ai/api/v0/instances/?api_key=${apiKey}`
-      : `${config.vastai.baseUrl}/instances/`;
-
     let runningInstances = [];
+
     if (apiKey && apiKey !== 'MASUKKAN_API_KEY_VAST_AI_ANDA' && !apiKey.startsWith('mock_')) {
+      const vastUrl = `https://cloud.vast.ai/api/v1/instances/?api_key=${apiKey}`;
       const res = await fetch(vastUrl, {
         headers: {
-          Authorization: `Bearer ${apiKey}`,
           'Accept': 'application/json',
         },
         timeout: 10000,
@@ -168,31 +157,26 @@ async function refreshGpuPool() {
 
       if (res.ok) {
         const data = await res.json();
-        const instances = data.instances || (Array.isArray(data) ? data : []);
-        runningInstances = instances.filter(
+        const instancesList = data.instances || (Array.isArray(data) ? data : []);
+        runningInstances = instancesList.filter(
           (inst) => inst.actual_status === 'running' || inst.status === 'running'
         );
-        logger.debug(`Vast.ai: ${instances.length} instance total, ${runningInstances.length} running`);
+        logger.debug(`Vast.ai: ${instancesList.length} instance total, ${runningInstances.length} running`);
       } else {
-        logger.warn(`Vast.ai API status: ${res.status} (${vastUrl})`);
+        logger.warn(`Vast.ai API status: ${res.status}`);
       }
     }
 
-    logger.debug(`Vast.ai: ${instances.length} instance total, ${runningInstances.length} running`);
-
-    // Build URL dan cek aksesibilitas + queue length secara paralel
     const poolPromises = runningInstances.map(async (instance) => {
       const url = buildComfyUrl(instance);
-      if (!url) return null; // Skip jika tidak bisa buat URL
+      if (!url) return null;
 
-      // Cek apakah ComfyUI bisa diakses
       const accessible = await isAccessible(url);
       if (!accessible) {
         logger.debug(`GPU ${instance.id} tidak accessible: ${url}`);
         return null;
       }
 
-      // Ambil panjang antrian
       const queueLength = await getQueueLength(url);
 
       return {
@@ -200,16 +184,12 @@ async function refreshGpuPool() {
         url,
         queueLength,
         status: 'online',
-        // Info tambahan untuk admin panel
-        gpuName:   instance.gpu_name || 'Unknown GPU',
+        gpuName: instance.gpu_name || 'Unknown GPU',
         machineId: instance.machine_id,
       };
     });
 
-    // Tunggu semua pengecekan selesai
     const results = await Promise.all(poolPromises);
-
-    // Filter null (instance yang tidak accessible) dan gabung dengan manual GPUs
     gpuPool = [...manualGpus, ...results.filter(Boolean)];
     lastRefreshTime = Date.now();
 
