@@ -143,6 +143,7 @@ app.use('/api/admin', adminRoutes);
 // ============================================================
 // Root redirect
 app.get('/', (req, res) => res.redirect('/login.html'));
+app.get('/favicon.ico', (req, res) => res.status(204).end());
 
 // Serve folder public/ sebagai static files
 app.use(express.static(path.join(__dirname, '..', 'public')));
