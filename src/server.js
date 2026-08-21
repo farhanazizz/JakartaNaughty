@@ -130,8 +130,10 @@ app.use('/api/admin', adminRoutes);
 // ============================================================
 // LANGKAH 5: Serve static files (Frontend)
 // ============================================================
+// Root redirect
+app.get('/', (req, res) => res.redirect('/login.html'));
+
 // Serve folder public/ sebagai static files
-// Urutan penting: static HARUS setelah routes API
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // Fallback: request ke /admin/* yang tidak ada → serve 404
