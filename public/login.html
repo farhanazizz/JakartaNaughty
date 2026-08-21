@@ -224,8 +224,12 @@
       try {
         const res = await fetch('/api/auth/me', { credentials: 'include' });
         if (res.ok) {
-          // Sudah login — redirect ke dashboard
-          window.location.href = '/dashboard.html';
+          const user = (await res.json()).data;
+          if (user && user.role === 'admin') {
+            window.location.href = '/admin/dashboard.html';
+          } else {
+            window.location.href = '/dashboard.html';
+          }
         }
       } catch (e) {
         // Belum login atau error network — tetap di halaman login
@@ -258,8 +262,12 @@
         const data = await res.json();
 
         if (res.ok && data.success) {
-          // Login berhasil — redirect ke dashboard
-          window.location.href = '/dashboard.html';
+          // Login berhasil — jika admin, arahkan ke admin dashboard, jika user biasa ke user dashboard
+          if (data.data && data.data.role === 'admin') {
+            window.location.href = '/admin/dashboard.html';
+          } else {
+            window.location.href = '/dashboard.html';
+          }
         } else {
           // Tampilkan pesan error dari server
           showError(data.message || 'Login gagal. Coba lagi.');

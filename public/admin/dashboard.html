@@ -18,11 +18,33 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
-    body { font-family: 'Inter', sans-serif; }
+    body { font-family: 'Inter', sans-serif; opacity: 0; transition: opacity 0.15s ease-in; }
+    body.authorized { opacity: 1; }
     .sidebar-link { @apply flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors; }
     .sidebar-link.active { @apply bg-orange-500/10 text-orange-400; }
     .sidebar-link:not(.active) { @apply text-slate-400 hover:bg-slate-700 hover:text-white; }
   </style>
+  <script>
+    // Guard langsung di head — cegah glitch/flicker sebelum auth diverifikasi
+    (async () => {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        if (!res.ok) throw new Error('unauthorized');
+        const user = (await res.json()).data;
+        if (!user || user.role !== 'admin') throw new Error('forbidden');
+        
+        // Terverifikasi admin — tampilkan body
+        const reveal = () => document.body && document.body.classList.add('authorized');
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', reveal);
+        } else {
+          reveal();
+        }
+      } catch {
+        window.location.replace('/admin/login.html');
+      }
+    })();
+  </script>
 </head>
 
 <body class="dark bg-slate-900 min-h-screen text-white">
