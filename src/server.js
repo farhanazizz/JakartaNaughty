@@ -28,10 +28,10 @@ const path         = require('path');
 const fs           = require('fs');
 
 // Konfigurasi & utilities
-const { validateEnv, config } = require('./config/env');
-const { initDb, closeDb }     = require('./config/database');
-const passport                = require('./config/passport');
-const { logger }              = require('./utils/logger');
+const { validateEnv, config }     = require('./config/env');
+const { initDb, getDb, closeDb } = require('./config/database');
+const passport                    = require('./config/passport');
+const { logger }                  = require('./utils/logger');
 
 // Services
 const { startQueueWorker } = require('./services/jobQueue');
