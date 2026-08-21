@@ -61,19 +61,52 @@
         <p id="error-msg" class="text-red-400 text-sm"></p>
       </div>
 
-      <p class="text-slate-300 text-sm mb-6">
-        Masuk menggunakan akun Google yang terdaftar sebagai admin.
-      </p>
+      <!-- Form Login Admin (Email & Password) -->
+      <form id="admin-login-form" class="space-y-4 text-left mb-6">
+        <div>
+          <label for="admin-email-input" class="block text-xs font-medium text-slate-300 mb-1">Email Admin</label>
+          <input
+            type="email"
+            id="admin-email-input"
+            required
+            placeholder="admin@email.com"
+            class="w-full px-3.5 py-2.5 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+          />
+        </div>
+        <div>
+          <label for="admin-pass-input" class="block text-xs font-medium text-slate-300 mb-1">Password</label>
+          <input
+            type="password"
+            id="admin-pass-input"
+            required
+            placeholder="••••••••"
+            class="w-full px-3.5 py-2.5 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+          />
+        </div>
+        <button
+          type="submit"
+          id="btn-admin-login"
+          class="w-full py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-xl transition-all duration-200 text-sm flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20"
+        >
+          <span id="btn-admin-text">Masuk sebagai Admin</span>
+        </button>
+      </form>
+
+      <!-- Divider -->
+      <div class="relative flex items-center justify-center mb-6">
+        <div class="border-t border-slate-700 w-full"></div>
+        <span class="bg-slate-800 px-3 text-xs text-slate-500 absolute uppercase">atau</span>
+      </div>
 
       <!-- Tombol Login Google -->
       <a
         href="/auth/google/admin"
-        class="flex items-center justify-center gap-3 w-full py-3 px-4
+        class="flex items-center justify-center gap-3 w-full py-2.5 px-4
                bg-white hover:bg-gray-100 text-gray-800 font-semibold rounded-xl
-               transition-all duration-200 shadow-lg"
+               transition-all duration-200 text-sm shadow-md"
       >
         <!-- Google Logo SVG -->
-        <svg class="w-5 h-5" viewBox="0 0 24 24">
+        <svg class="w-4 h-4" viewBox="0 0 24 24">
           <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
           <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
           <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
@@ -120,20 +153,52 @@
       errorMsg.textContent = '⚠️ Proses login Google gagal. Coba lagi.';
     }
 
-    // Cek apakah sudah login sebagai admin → redirect ke dashboard
-    (async () => {
+    // Handle submit form login admin (Email & Password)
+    const adminForm = document.getElementById('admin-login-form');
+    const emailInput = document.getElementById('admin-email-input');
+    const passInput  = document.getElementById('admin-pass-input');
+    const btnSubmit  = document.getElementById('btn-admin-login');
+    const btnText    = document.getElementById('btn-admin-text');
+
+    adminForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorBox.classList.add('hidden');
+
+      const email    = emailInput.value.trim();
+      const password = passInput.value;
+
+      btnSubmit.disabled = true;
+      btnText.textContent = 'Memverifikasi...';
+
       try {
-        const res = await fetch('/api/auth/me', { credentials: 'include' });
-        if (res.ok) {
-          const data = await res.json();
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ email, password }),
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.success) {
           if (data.data?.role === 'admin') {
             window.location.href = '/admin/dashboard.html';
+          } else {
+            errorBox.classList.remove('hidden');
+            errorMsg.textContent = '⚠️ Akun ini bukan administrator.';
           }
+        } else {
+          errorBox.classList.remove('hidden');
+          errorMsg.textContent = data.message || 'Login gagal.';
         }
-      } catch (e) {
-        // Tidak login — tetap di halaman ini
+      } catch (err) {
+        errorBox.classList.remove('hidden');
+        errorMsg.textContent = 'Gagal terhubung ke server.';
+      } finally {
+        btnSubmit.disabled = false;
+        btnText.textContent = 'Masuk sebagai Admin';
       }
-    })();
+    });
   </script>
 
 </body>
