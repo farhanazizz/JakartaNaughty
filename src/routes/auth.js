@@ -1,14 +1,13 @@
 /**
  * ============================================================
- * src/routes/auth.js — Routes Autentikasi
+ * src/routes/auth.js — Routes Autentikasi (Username & Password)
  * ============================================================
- * Endpoints:
- *   POST /api/auth/login               — Login user
- *   POST /api/auth/logout              — Logout
- *   POST /api/auth/refresh             — Refresh access token
- *   GET  /api/auth/me                  — Info user yang login
- *   GET  /auth/google/admin            — Redirect ke Google OAuth
- *   GET  /auth/google/admin/callback   — Callback dari Google
+ * Fitur:
+ *   - Login dengan Username atau Email
+ *   - Log audit lengkap (User-Agent, IP, Event)
+ *   - Proteksi brute-force (lockout 15 menit)
+ *   - Proteksi status Suspended
+ *   - Cookie aman dengan SameSite Lax
  * ============================================================
  */
 
@@ -28,33 +27,35 @@ const { loginLimiter } = require('../middleware/rateLimiter');
 const authMiddleware = require('../middleware/auth');
 const passport = require('../config/passport');
 const { config } = require('../config/env');
+const { logSecurityEvent } = require('../utils/securityLogger');
 const { logger } = require('../utils/logger');
 
 const router = express.Router();
 
 /**
- * Opsi cookie yang aman:
- * - httpOnly: tidak bisa diakses JavaScript (anti XSS)
- * - secure: hanya HTTPS (di production)
- * - sameSite: strict (anti CSRF)
+ * Cookie options:
+ * - httpOnly: tidak bisa dibaca JavaScript (anti XSS)
+ * - secure: HTTPS di production
+ * - sameSite: 'lax' (mencegah cookie hilang saat redirect/navigasi)
  */
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure:   config.isProduction,
-  sameSite: 'strict',
-  path:     '/',
+  secure: config.isProduction,
+  sameSite: 'lax',
+  path: '/',
 };
 
 // ============================================================
-// POST /api/auth/login — Login user biasa
+// POST /api/auth/login — Login Member & Admin (Username/Password)
 // ============================================================
 router.post('/login', loginLimiter, async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const identifier = (req.body.username || req.body.email || '').toLowerCase().trim();
+    const password = req.body.password;
 
-    // Validasi input dasar
-    if (!email || typeof email !== 'string' || !email.includes('@')) {
-      return res.status(400).json({ success: false, message: 'Format email tidak valid.' });
+    // Validasi input
+    if (!identifier) {
+      return res.status(400).json({ success: false, message: 'Username atau email wajib diisi.' });
     }
     if (!password || password.length < 6) {
       return res.status(400).json({ success: false, message: 'Password minimal 6 karakter.' });
@@ -62,31 +63,56 @@ router.post('/login', loginLimiter, async (req, res) => {
 
     const db = getDb();
 
-    // Cek apakah user ada di database
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email.toLowerCase().trim());
+    // Cari user berdasarkan email / username
+    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(identifier);
 
     if (!user) {
-      // Jangan beritahu apakah email ada atau tidak (security)
-      return res.status(401).json({ success: false, message: 'Email atau password salah.' });
+      logSecurityEvent(req, {
+        username: identifier,
+        event: 'LOGIN_FAIL_USER_NOT_FOUND',
+        status: 'WARNING',
+        detail: 'Username tidak terdaftar',
+      });
+      return res.status(401).json({ success: false, message: 'Username atau password salah.' });
     }
 
-    // Cek apakah akun disuspend atau nonaktif
+    // Cek apakah akun disuspend (is_active === 2)
     if (user.is_active === 2) {
+      logSecurityEvent(req, {
+        username: identifier,
+        event: 'LOGIN_FAIL_SUSPENDED',
+        status: 'DANGER',
+        detail: 'Percobaan login dari akun yang ditangguhkan',
+      });
       return res.status(403).json({
         success: false,
         message: 'Akun Anda telah DITANGGUHKAN (SUSPENDED) oleh administrator. Hubungi admin untuk informasi lebih lanjut.',
       });
     }
+
+    // Cek apakah akun nonaktif (is_active === 0)
     if (user.is_active !== 1) {
+      logSecurityEvent(req, {
+        username: identifier,
+        event: 'LOGIN_FAIL_INACTIVE',
+        status: 'WARNING',
+        detail: 'Percobaan login dari akun nonaktif',
+      });
       return res.status(403).json({ success: false, message: 'Akun kamu dinonaktifkan. Hubungi admin.' });
     }
 
-    // Cek apakah akun sedang terkunci (brute force protection)
+    // Cek apakah akun sedang terkunci (brute force lockout)
     if (user.locked_until && new Date(user.locked_until) > new Date()) {
       const remaining = Math.ceil((new Date(user.locked_until) - new Date()) / 60000);
+      logSecurityEvent(req, {
+        username: identifier,
+        event: 'LOGIN_FAIL_LOCKED',
+        status: 'DANGER',
+        detail: `Akun terkunci, sisa ${remaining} menit`,
+      });
       return res.status(403).json({
         success: false,
-        message: `Akun terkunci karena terlalu banyak percobaan login. Coba lagi dalam ${remaining} menit.`,
+        message: `Akun terkunci karena terlalu banyak percobaan salah. Coba lagi dalam ${remaining} menit.`,
       });
     }
 
@@ -94,199 +120,182 @@ router.post('/login', loginLimiter, async (req, res) => {
     const isMatch = await comparePassword(password, user.password_hash);
 
     if (!isMatch) {
-      // Increment fail count, lock jika >= 5
-      const newFailCount = user.login_fail_count + 1;
+      const newFailCount = (user.login_fail_count || 0) + 1;
       let lockedUntil = null;
 
       if (newFailCount >= 5) {
-        // Lock selama 15 menit
         lockedUntil = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-        logger.warn(`Akun ${email} dikunci karena ${newFailCount}x gagal login`);
+        logger.warn(`Akun ${identifier} dikunci 15 menit (5x salah password)`);
       }
 
-      db.prepare(
-        'UPDATE users SET login_fail_count = ?, locked_until = ? WHERE id = ?'
-      ).run(newFailCount, lockedUntil, user.id);
+      db.prepare(`
+        UPDATE users
+        SET login_fail_count = ?, locked_until = ?
+        WHERE id = ?
+      `).run(newFailCount, lockedUntil, user.id);
 
-      return res.status(401).json({ success: false, message: 'Email atau password salah.' });
+      logSecurityEvent(req, {
+        username: identifier,
+        event: lockedUntil ? 'ACCOUNT_LOCKED_BRUTEFORCE' : 'LOGIN_FAIL_WRONG_PASSWORD',
+        status: 'WARNING',
+        detail: `Percobaan ke-${newFailCount}`,
+      });
+
+      if (lockedUntil) {
+        return res.status(403).json({
+          success: false,
+          message: 'Password salah 5 kali. Akun terkunci selama 15 menit.',
+        });
+      }
+
+      return res.status(401).json({
+        success: false,
+        message: `Password salah. Sisa kesempatan: ${5 - newFailCount}x.`,
+      });
     }
 
-    // Login berhasil — reset fail count dan update last_login
-    db.prepare(
-      'UPDATE users SET login_fail_count = 0, locked_until = NULL, last_login_at = ? WHERE id = ?'
-    ).run(new Date().toISOString(), user.id);
+    // Password benar — Reset login_fail_count & update last_login_at
+    const now = new Date().toISOString();
+    db.prepare(`
+      UPDATE users
+      SET login_fail_count = 0, locked_until = NULL, last_login_at = ?
+      WHERE id = ?
+    `).run(now, user.id);
 
-    // Buat access token dan refresh token
-    const accessToken  = generateAccessToken(user.id, user.role);
+    // Generate token JWT
+    const accessToken = generateAccessToken(user.id, user.role);
     const refreshToken = generateRefreshToken(user.id);
 
-    // Hash refresh token sebelum disimpan ke DB
-    const refreshTokenHash = hashToken(refreshToken);
+    // Simpan hash refresh token ke DB
+    const tokenId = uuidv4();
+    const tokenHash = hashToken(refreshToken);
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    // Simpan refresh token ke database
     db.prepare(`
       INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, created_at, ip_address)
       VALUES (?, ?, ?, ?, ?, ?)
-    `).run(
-      uuidv4(),
-      user.id,
-      refreshTokenHash,
-      new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      new Date().toISOString(),
-      req.ip
-    );
+    `).run(tokenId, user.id, tokenHash, expiresAt, now, req.ip);
 
-    // Set cookies HttpOnly
-    res.cookie('access_token',  accessToken,  { ...COOKIE_OPTIONS, maxAge: 15 * 60 * 1000 });          // 15 menit
-    res.cookie('refresh_token', refreshToken, { ...COOKIE_OPTIONS, maxAge: 7 * 24 * 60 * 60 * 1000 }); // 7 hari
+    // Set Cookies
+    res.cookie('access_token', accessToken, {
+      ...COOKIE_OPTIONS,
+      maxAge: 15 * 60 * 1000, // 15 menit
+    });
 
-    logger.info(`User login berhasil: ${email} | IP: ${req.ip}`);
+    res.cookie('refresh_token', refreshToken, {
+      ...COOKIE_OPTIONS,
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 hari
+    });
+
+    logSecurityEvent(req, {
+      username: identifier,
+      event: 'LOGIN_SUCCESS',
+      status: 'SUCCESS',
+      detail: `Role: ${user.role}`,
+    });
+
+    logger.info(`Login sukses: ${identifier} (role: ${user.role}) IP=${req.ip}`);
 
     return res.json({
       success: true,
       data: {
-        id:      user.id,
-        email:   user.email,
-        role:    user.role,
+        id: user.id,
+        username: user.email,
+        email: user.email,
+        role: user.role,
         credits: user.credits,
       },
     });
 
   } catch (err) {
-    logger.error('Login error:', err.message);
-    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+    logger.error('Login error:', err);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat proses login.' });
   }
 });
 
 // ============================================================
 // POST /api/auth/logout — Logout
 // ============================================================
-router.post('/logout', authMiddleware, (req, res) => {
-  try {
-    const db = getDb();
-
-    // Revoke semua refresh token user ini (logout dari semua perangkat)
-    db.prepare(
-      'UPDATE refresh_tokens SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL'
-    ).run(new Date().toISOString(), req.user.id);
-
-    // Hapus cookies
-    res.clearCookie('access_token',  { ...COOKIE_OPTIONS });
-    res.clearCookie('refresh_token', { ...COOKIE_OPTIONS });
-
-    logger.info(`User logout: ${req.user.id}`);
-
-    return res.json({ success: true, message: 'Berhasil logout.' });
-
-  } catch (err) {
-    logger.error('Logout error:', err.message);
-    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
-  }
-});
-
-// ============================================================
-// POST /api/auth/refresh — Refresh access token
-// ============================================================
-router.post('/refresh', async (req, res) => {
+router.post('/logout', (req, res) => {
   try {
     const refreshToken = req.cookies?.refresh_token;
-
-    if (!refreshToken) {
-      return res.status(401).json({ success: false, message: 'Tidak ada refresh token.' });
+    if (refreshToken) {
+      const db = getDb();
+      const tokenHash = hashToken(refreshToken);
+      db.prepare(`
+        UPDATE refresh_tokens SET revoked_at = ? WHERE token_hash = ?
+      `).run(new Date().toISOString(), tokenHash);
     }
+  } catch (_) {}
 
-    // Verify refresh token
-    let payload;
-    try {
-      payload = verifyRefreshToken(refreshToken);
-    } catch {
-      return res.status(401).json({ success: false, message: 'Refresh token tidak valid.' });
-    }
+  res.clearCookie('access_token', { path: '/' });
+  res.clearCookie('refresh_token', { path: '/' });
 
-    const db = getDb();
-
-    // Cek hash token di database (dan pastikan belum di-revoke)
-    const tokenHash   = hashToken(refreshToken);
-    const tokenRecord = db.prepare(
-      'SELECT * FROM refresh_tokens WHERE token_hash = ? AND revoked_at IS NULL'
-    ).get(tokenHash);
-
-    if (!tokenRecord) {
-      return res.status(401).json({ success: false, message: 'Refresh token tidak valid atau sudah dicabut.' });
-    }
-
-    // Cek apakah token expired di DB
-    if (new Date(tokenRecord.expires_at) < new Date()) {
-      return res.status(401).json({ success: false, message: 'Refresh token sudah expired.' });
-    }
-
-    // Ambil data user terbaru
-    const user = db.prepare('SELECT id, role FROM users WHERE id = ? AND is_active = 1').get(payload.sub);
-    if (!user) {
-      return res.status(401).json({ success: false, message: 'User tidak ditemukan.' });
-    }
-
-    // Buat access token baru
-    const newAccessToken = generateAccessToken(user.id, user.role);
-    res.cookie('access_token', newAccessToken, { ...COOKIE_OPTIONS, maxAge: 15 * 60 * 1000 });
-
-    return res.json({ success: true });
-
-  } catch (err) {
-    logger.error('Refresh token error:', err.message);
-    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
-  }
+  return res.json({ success: true, message: 'Berhasil logout.' });
 });
 
 // ============================================================
-// GET /api/auth/me — Info user yang sedang login
+// GET /api/auth/me — Info user aktif
 // ============================================================
 router.get('/me', authMiddleware, (req, res) => {
-  const db = getDb();
-  const user = db.prepare(
-    'SELECT id, email, role, credits FROM users WHERE id = ? AND is_active = 1'
-  ).get(req.user.id);
+  try {
+    const db = getDb();
+    const user = db.prepare(
+      'SELECT id, email, role, credits, is_active, created_at, last_login_at FROM users WHERE id = ?'
+    ).get(req.user.id);
 
-  if (!user) {
-    return res.status(404).json({ success: false, message: 'User tidak ditemukan.' });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User tidak ditemukan.' });
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        ...user,
+        username: user.email,
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'Gagal memuat profil user.' });
   }
-
-  return res.json({ success: true, data: user });
 });
 
 // ============================================================
-// GET /auth/google/admin — Mulai Google OAuth (redirect ke Google)
+// Google OAuth Admin Callbacks
 // ============================================================
-router.get('/google/admin', passport.authenticate('google', {
-  scope: ['profile', 'email'],
-}));
-
-// ============================================================
-// GET /auth/google/admin/callback — Callback dari Google
-// ============================================================
-router.get('/google/admin/callback',
+router.get('/google/admin', (req, res, next) => {
+  if (!config.google.clientId || !config.google.clientSecret) {
+    return res.redirect('/admin/login.html?error=oauth_not_configured');
+  }
   passport.authenticate('google', {
-    failureRedirect: '/admin/login.html?error=unauthorized',
-    session: false,  // Kita tidak pakai session Passport, tapi JWT
-  }),
-  (req, res) => {
-    // Jika sampai sini, admin sudah terverifikasi oleh Google dan whitelist
-    const adminUser = req.user;
+    scope: ['profile', 'email'],
+    prompt: 'select_account',
+  })(req, res, next);
+});
 
-    // Buat access token untuk admin
-    const accessToken = generateAccessToken(adminUser.id, adminUser.role);
+router.get('/google/admin/callback', (req, res, next) => {
+  passport.authenticate('google', (err, user, info) => {
+    if (err || !user) {
+      logger.warn('Google OAuth admin gagal:', info?.message || err?.message);
+      return res.redirect('/admin/login.html?error=unauthorized');
+    }
 
-    // Set cookie — session lebih pendek untuk admin (8 jam)
+    // Buat JWT untuk admin
+    const accessToken = generateAccessToken(user.id, 'admin');
     res.cookie('access_token', accessToken, {
       ...COOKIE_OPTIONS,
-      maxAge: 8 * 60 * 60 * 1000, // 8 jam
+      maxAge: 60 * 60 * 1000, // 1 jam
     });
 
-    logger.info(`Admin berhasil masuk via Google: ${adminUser.email}`);
+    logSecurityEvent(req, {
+      username: user.email,
+      event: 'OAUTH_ADMIN_LOGIN_SUCCESS',
+      status: 'SUCCESS',
+      detail: 'Google OAuth',
+    });
 
-    // Redirect ke halaman admin dashboard
-    res.redirect('/admin/dashboard.html');
-  }
-);
+    return res.redirect('/admin/dashboard.html');
+  })(req, res, next);
+});
 
 module.exports = router;

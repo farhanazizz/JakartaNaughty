@@ -40,9 +40,9 @@
       background-color: #080c14;
     }
     .glass-card {
-      background: rgba(15, 23, 42, 0.8);
+      background: rgba(15, 23, 42, 0.85);
       backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 120, 141, 0.18);
+      border: 1px solid rgba(255, 120, 141, 0.2);
     }
   </style>
 </head>
@@ -79,15 +79,16 @@
         <p id="error-msg" class="text-red-300 text-xs font-medium"></p>
       </div>
 
-      <!-- Form Login Admin (Email & Password) -->
+      <!-- Form Login Admin (Username & Password) -->
       <form id="admin-login-form" class="space-y-4 text-left mb-6">
         <div>
-          <label for="admin-email-input" class="block text-xs font-bold text-slate-300 mb-1.5">Email Administrator</label>
+          <label for="admin-username-input" class="block text-xs font-bold text-slate-300 mb-1.5">Username Administrator</label>
           <input
-            type="email"
-            id="admin-email-input"
+            type="text"
+            id="admin-username-input"
             required
-            placeholder="admin@jakarta.com"
+            autocomplete="username"
+            placeholder="admin"
             class="w-full px-3.5 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand text-xs font-medium"
           />
         </div>
@@ -97,6 +98,7 @@
             type="password"
             id="admin-pass-input"
             required
+            autocomplete="current-password"
             placeholder="••••••••"
             class="w-full px-3.5 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand text-xs font-medium"
           />
@@ -113,12 +115,12 @@
       <!-- Info Keamanan -->
       <div class="pt-4 border-t border-slate-800">
         <p class="text-slate-500 text-[11px] leading-relaxed">
-          🔒 Gerbang ini dilindungi oleh <strong class="text-slate-400">Stealth Shield</strong>. Semua percobaan akses tidak sah dicatat ke dalam audit log.
+          🔒 Gerbang dilindungi oleh <strong class="text-slate-400">Stealth Shield</strong>. IP & User-Agent Anda sedang dimonitor.
         </p>
       </div>
     </div>
 
-    <!-- Link ke Halaman User -->
+    <!-- Link ke Halaman Member -->
     <p class="mt-6 text-slate-500 text-xs">
       Bukan admin?
       <a href="/login.html" class="text-brand hover:text-brand-light transition-colors font-semibold">Buka Halaman Member →</a>
@@ -142,7 +144,7 @@
 
     // Handle Form Submit
     const adminForm  = document.getElementById('admin-login-form');
-    const emailInput = document.getElementById('admin-email-input');
+    const userInput  = document.getElementById('admin-username-input');
     const passInput  = document.getElementById('admin-pass-input');
     const btnSubmit  = document.getElementById('btn-admin-login');
     const btnText    = document.getElementById('btn-admin-text');
@@ -153,7 +155,7 @@
       e.preventDefault();
       errorBox.classList.add('hidden');
 
-      const email    = emailInput.value.trim();
+      const username = userInput.value.trim();
       const password = passInput.value;
 
       btnSubmit.disabled = true;
@@ -164,7 +166,7 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({ username, password }),
         });
 
         const data = await res.json();

@@ -2,14 +2,10 @@
  * ============================================================
  * src/middleware/adminShield.js — Admin Stealth Gate (Anti-Scanning)
  * ============================================================
- * Melindungi semua URL admin (/admin/*, /api/admin/*, /admin/login.html)
- * dari bot scanning, hacker, dan akses publik tanpa izin.
+ * Melindungi semua URL admin (/admin/*, /api/admin/*) dari bot scanning,
+ * hacker, dan akses publik tanpa izin.
  *
- * Logika:
- * 1. Jika user sudah login dengan token admin valid -> IZINKAN
- * 2. Jika request menyertakan Secret Key yang valid (?key=... atau header X-Admin-Key) -> IZINKAN & set gate cookie
- * 3. Jika request memiliki gate cookie valid -> IZINKAN
- * 4. Jika TIDAK memenuhi -> Kembalikan 404 Not Found murni (seolah-olah URL admin tidak ada)
+ * Mengembalikan 404 Not Found murni jika tidak memiliki Secret Key.
  * ============================================================
  */
 
@@ -18,6 +14,7 @@
 const crypto = require('crypto');
 const { config } = require('../config/env');
 const { verifyAccessToken } = require('../utils/jwt');
+const { logSecurityEvent } = require('../utils/securityLogger');
 const { logger } = require('../utils/logger');
 
 // Hash secret key untuk verifikasi cookie gate
@@ -36,13 +33,12 @@ function adminShield(req, res, next) {
   const gateHash = getGateSecretHash();
 
   // 1. Cek apakah ada secret key valid di query string (?key=...) atau header
-  if (providedKey && providedKey === secretKey) {
-    // Beri cookie gate agar admin tidak perlu memasukkan query ?key= di setiap klik
+  if (providedKey && providedKey.trim() === secretKey) {
     res.cookie('admin_gate_token', gateHash, {
       httpOnly: true,
       secure: config.isProduction,
       sameSite: 'lax',
-      maxAge: 4 * 60 * 60 * 1000, // 4 jam
+      maxAge: 24 * 60 * 60 * 1000, // 24 jam
       path: '/',
     });
     return next();
@@ -62,7 +58,14 @@ function adminShield(req, res, next) {
     }
   }
 
-  // 4. Jika bukan admin dan tidak punya secret key -> KEMBALIKAN 404 NOT FOUND MURNI
+  // 4. Jika bukan admin dan tidak punya secret key -> CATAT KE SECURITY LOG & KEMBALIKAN 404
+  logSecurityEvent(req, {
+    username: 'unauthorized_scanner',
+    event: 'STEALTH_GATE_BLOCKED',
+    status: 'DANGER',
+    detail: { path: req.originalUrl, method: req.method },
+  });
+
   logger.warn(`[STEALTH SHIELD] Akses admin ditolak (404 fake): IP=${req.ip} path=${req.originalUrl}`);
 
   if (req.path.startsWith('/api/')) {
@@ -72,7 +75,7 @@ function adminShield(req, res, next) {
     });
   }
 
-  // Tampilkan 404 generik sederhana untuk request halaman HTML
+  // 404 generik sederhana untuk request browser
   return res.status(404).type('text/html').send(`
     <!DOCTYPE html>
     <html lang="en">

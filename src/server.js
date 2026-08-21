@@ -57,6 +57,9 @@ validateEnv();
 // ============================================================
 const app = express();
 
+// Set trust proxy agar Express mengenali header Cloudflare (CF-Connecting-IP, X-Forwarded-For) & HTTPS
+app.set('trust proxy', 1);
+
 // --- Middleware Keamanan ---
 
 // Helmet: set security headers (XSS protection, HSTS, dll)
@@ -183,26 +186,26 @@ requiredDirs.forEach((dir) => {
  */
 async function ensureDefaultAdmin() {
   const db = getDb();
-  const adminEmail = (config.adminEmails[0] || 'admin@jakarta.com').toLowerCase();
+  const adminUsers = ['admin', 'admin@jakarta.com'];
   const adminPass  = process.env.ADMIN_PASSWORD || 'admin12345';
+  const { v4: uuidv4 }   = require('uuid');
+  const { hashPassword } = require('./utils/hash');
+  const { addCredit }    = require('./services/creditService');
+  const passwordHash = await hashPassword(adminPass);
+  const now = new Date().toISOString();
 
-  const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(adminEmail);
-  if (!existing) {
-    const { v4: uuidv4 }   = require('uuid');
-    const { hashPassword } = require('./utils/hash');
-    const { addCredit }    = require('./services/creditService');
+  for (const u of adminUsers) {
+    const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(u);
+    if (!existing) {
+      const userId = uuidv4();
+      db.prepare(`
+        INSERT INTO users (id, email, password_hash, role, credits, is_active, created_at)
+        VALUES (?, ?, ?, 'admin', 0, 1, ?)
+      `).run(userId, u, passwordHash, now);
 
-    const passwordHash = await hashPassword(adminPass);
-    const userId = uuidv4();
-    const now = new Date().toISOString();
-
-    db.prepare(`
-      INSERT INTO users (id, email, password_hash, role, credits, is_active, created_at)
-      VALUES (?, ?, ?, 'admin', 0, 1, ?)
-    `).run(userId, adminEmail, passwordHash, now);
-
-    addCredit(userId, 1000, 'Saldo Awal Administrator', 'system_bootstrap');
-    logger.info(`✨ Akun Admin otomatis dibuat: ${adminEmail} (password: ${adminPass})`);
+      addCredit(userId, 1000, 'Saldo Awal Administrator', 'system_bootstrap');
+      logger.info(`✨ Akun Admin otomatis dibuat: ${u} (password: ${adminPass})`);
+    }
   }
 }
 

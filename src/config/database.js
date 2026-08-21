@@ -291,7 +291,22 @@ async function initDb() {
       target_user_id  TEXT,
       detail          TEXT,
       ip_address      TEXT,
+      user_agent      TEXT,
       created_at      TEXT NOT NULL
+    );
+  `);
+
+  // Tabel: security_logs (Pantau aktivitas mencurigakan, IP, dan User-Agent)
+  dbWrapper.exec(`
+    CREATE TABLE IF NOT EXISTS security_logs (
+      id          TEXT PRIMARY KEY,
+      username    TEXT,
+      event       TEXT NOT NULL,
+      status      TEXT NOT NULL DEFAULT 'INFO', -- 'SUCCESS', 'WARNING', 'DANGER', 'INFO'
+      ip_address  TEXT,
+      user_agent  TEXT,
+      detail      TEXT,
+      created_at  TEXT NOT NULL
     );
   `);
 
@@ -302,6 +317,8 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at);
     CREATE INDEX IF NOT EXISTS idx_credit_logs_user_id ON credit_logs(user_id);
     CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens(user_id);
+    CREATE INDEX IF NOT EXISTS idx_security_logs_created ON security_logs(created_at);
+    CREATE INDEX IF NOT EXISTS idx_security_logs_ip ON security_logs(ip_address);
   `);
 
   logger.info('Database diinisialisasi — semua tabel siap (Pure JS/WASM SQLite)');

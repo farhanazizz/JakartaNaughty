@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   ============================================================
-  public/login.html — Jakarta Naughty Member Login
+  public/login.html — Jakarta Naughty Member Login (Username & Password)
   ============================================================
 -->
 <html lang="id" class="dark">
@@ -65,7 +65,7 @@
     <div class="glass-card rounded-3xl p-8 shadow-2xl">
 
       <h2 class="text-lg font-bold text-white mb-2">Masuk ke Akun Member</h2>
-      <p class="text-xs text-slate-400 mb-6">Masukkan email & password untuk mulai generate foto.</p>
+      <p class="text-xs text-slate-400 mb-6">Masukkan username & password untuk mulai generate foto.</p>
 
       <!-- Error Alert -->
       <div id="error-box" class="hidden mb-5 p-3.5 bg-red-950/60 border border-red-500/40 rounded-xl text-left">
@@ -75,13 +75,13 @@
       <!-- Form Login -->
       <form id="login-form" class="space-y-4 text-left">
         <div>
-          <label for="email" class="block text-xs font-bold text-slate-300 mb-1.5">Email</label>
+          <label for="username" class="block text-xs font-bold text-slate-300 mb-1.5">Username</label>
           <input
-            type="email"
-            id="email"
+            type="text"
+            id="username"
             required
-            autocomplete="email"
-            placeholder="nama@email.com"
+            autocomplete="username"
+            placeholder="username_anda"
             class="w-full px-3.5 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand text-xs font-medium"
           />
         </div>
@@ -137,7 +137,7 @@
 
   <script>
     const form        = document.getElementById('login-form');
-    const emailInput  = document.getElementById('email');
+    const userInput   = document.getElementById('username');
     const passInput   = document.getElementById('password');
     const btnLogin    = document.getElementById('btn-login');
     const btnText     = document.getElementById('btn-text');
@@ -187,11 +187,11 @@
       e.preventDefault();
       hideError();
 
-      const email    = emailInput.value.trim();
+      const username = userInput.value.trim();
       const password = passInput.value;
 
-      if (!email || !password) {
-        return showError('Email dan password wajib diisi.');
+      if (!username || !password) {
+        return showError('Username dan password wajib diisi.');
       }
 
       setLoading(true);
@@ -201,7 +201,7 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({ username, password }),
         });
 
         const data = await res.json();
@@ -213,7 +213,7 @@
             window.location.href = '/dashboard.html';
           }
         } else {
-          showError(data.message || 'Login gagal. Periksa kembali email dan password Anda.');
+          showError(data.message || 'Login gagal. Periksa kembali username dan password Anda.');
         }
       } catch (err) {
         showError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda.');

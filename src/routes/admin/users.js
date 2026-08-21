@@ -89,23 +89,24 @@ router.get('/', (req, res) => {
 // ============================================================
 router.post('/', async (req, res) => {
   try {
-    const { email, password, initial_credits } = req.body;
+    const identifier = (req.body.username || req.body.email || '').toLowerCase().trim();
+    const { password, initial_credits } = req.body;
 
     // Validasi input
-    if (!email || typeof email !== 'string' || !email.includes('@')) {
-      return res.status(400).json({ success: false, message: 'Format email tidak valid.' });
+    if (!identifier || identifier.length < 3) {
+      return res.status(400).json({ success: false, message: 'Username / Email minimal 3 karakter.' });
     }
     if (!password || typeof password !== 'string' || password.length < 6) {
       return res.status(400).json({ success: false, message: 'Password minimal 6 karakter.' });
     }
 
-    const cleanEmail = email.toLowerCase().trim();
+    const cleanEmail = identifier;
     const db = getDb();
 
-    // Cek duplikasi email
+    // Cek duplikasi username / email
     const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(cleanEmail);
     if (existing) {
-      return res.status(400).json({ success: false, message: 'Email sudah terdaftar.' });
+      return res.status(400).json({ success: false, message: 'Username / Email sudah terdaftar.' });
     }
 
     // Hash password
