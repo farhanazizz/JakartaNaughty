@@ -134,29 +134,49 @@ async function refreshGpuPool() {
   if (isRefreshing) return;
   isRefreshing = true;
 
-  logger.debug('Memperbarui GPU pool dari Vast.ai API...');
-
   try {
-    // Ambil semua instance dari Vast.ai API
-    const res = await fetch(`${config.vastai.baseUrl}/instances/`, {
-      headers: {
-        Authorization: `Bearer ${config.vastai.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      timeout: 10000, // Timeout 10 detik
-    });
-
-    if (!res.ok) {
-      throw new Error(`Vast.ai API error: ${res.status} ${res.statusText}`);
+    // Jika ada direct URL ComfyUI yang diset manual di .env (fallback)
+    const directUrl = process.env.COMFYUI_DIRECT_URL;
+    const manualGpus = [];
+    if (directUrl) {
+      const accessible = await isAccessible(directUrl);
+      const queueLen   = accessible ? await getQueueLength(directUrl) : Infinity;
+      manualGpus.push({
+        id:          'manual_gpu',
+        url:         directUrl,
+        queueLength: queueLen,
+        status:      accessible ? 'online' : 'offline',
+        gpuName:     'Manual ComfyUI GPU',
+      });
     }
 
-    const data = await res.json();
-    const instances = data.instances || [];
+    // Ambil semua instance dari Vast.ai API (cloud.vast.ai)
+    const apiKey = config.vastai.apiKey;
+    const vastUrl = apiKey
+      ? `https://cloud.vast.ai/api/v0/instances/?api_key=${apiKey}`
+      : `${config.vastai.baseUrl}/instances/`;
 
-    // Filter hanya instance yang sedang running
-    const runningInstances = instances.filter(
-      (inst) => inst.actual_status === 'running' || inst.status === 'running'
-    );
+    let runningInstances = [];
+    if (apiKey && apiKey !== 'MASUKKAN_API_KEY_VAST_AI_ANDA' && !apiKey.startsWith('mock_')) {
+      const res = await fetch(vastUrl, {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Accept': 'application/json',
+        },
+        timeout: 10000,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const instances = data.instances || (Array.isArray(data) ? data : []);
+        runningInstances = instances.filter(
+          (inst) => inst.actual_status === 'running' || inst.status === 'running'
+        );
+        logger.debug(`Vast.ai: ${instances.length} instance total, ${runningInstances.length} running`);
+      } else {
+        logger.warn(`Vast.ai API status: ${res.status} (${vastUrl})`);
+      }
+    }
 
     logger.debug(`Vast.ai: ${instances.length} instance total, ${runningInstances.length} running`);
 
@@ -189,8 +209,8 @@ async function refreshGpuPool() {
     // Tunggu semua pengecekan selesai
     const results = await Promise.all(poolPromises);
 
-    // Filter null (instance yang tidak accessible)
-    gpuPool = results.filter(Boolean);
+    // Filter null (instance yang tidak accessible) dan gabung dengan manual GPUs
+    gpuPool = [...manualGpus, ...results.filter(Boolean)];
     lastRefreshTime = Date.now();
 
     logger.info(`GPU pool diperbarui: ${gpuPool.length} GPU online`);
