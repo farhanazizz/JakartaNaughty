@@ -40,6 +40,9 @@ function authMiddleware(req, res, next) {
   }
 
   try {
+    // Verifikasi dan decode token JWT
+    const payload = verifyAccessToken(token);
+
     // Verifikasi status user di database secara realtime
     const { getDb } = require('../config/database');
     const db = getDb();
