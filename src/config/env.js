@@ -75,7 +75,14 @@ const config = {
     callbackUrl: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3000/auth/google/admin/callback',
   },
 
-  // Admin — daftar email yang diizinkan login sebagai admin
+  // Branding
+  app: {
+    name: 'Jakarta Naughty',
+    studio: 'Edit Photo Studio',
+  },
+
+  // Admin — daftar email & secret key gerbang penyamaran (Stealth Shield)
+  adminSecretKey: process.env.ADMIN_SECRET_KEY || 'jakarta_naughty_admin_secret_key_88',
   adminEmails: (process.env.ADMIN_EMAILS || '')
     .split(',')
     .map((e) => e.trim().toLowerCase())

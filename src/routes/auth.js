@@ -70,7 +70,13 @@ router.post('/login', loginLimiter, async (req, res) => {
       return res.status(401).json({ success: false, message: 'Email atau password salah.' });
     }
 
-    // Cek apakah akun aktif
+    // Cek apakah akun disuspend atau nonaktif
+    if (user.is_active === 2) {
+      return res.status(403).json({
+        success: false,
+        message: 'Akun Anda telah DITANGGUHKAN (SUSPENDED) oleh administrator. Hubungi admin untuk informasi lebih lanjut.',
+      });
+    }
     if (user.is_active !== 1) {
       return res.status(403).json({ success: false, message: 'Akun kamu dinonaktifkan. Hubungi admin.' });
     }

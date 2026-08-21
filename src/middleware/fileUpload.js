@@ -78,40 +78,87 @@ const upload = multer({
   },
 });
 
+const fs = require('fs');
+
+/**
+ * Validasi Magic Bytes header biner file gambar.
+ * Mencegah file berbahaya (PHP/JS/EXE) disamarkan sebagai ekstensi gambar.
+ */
+function validateMagicBytes(filePath) {
+  try {
+    const buffer = Buffer.alloc(12);
+    const fd = fs.openSync(filePath, 'r');
+    fs.readSync(fd, buffer, 0, 12, 0);
+    fs.closeSync(fd);
+
+    // JPEG: FF D8 FF
+    if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return true;
+
+    // PNG: 89 50 4E 47 0D 0A 1A 0A
+    if (
+      buffer[0] === 0x89 &&
+      buffer[1] === 0x50 &&
+      buffer[2] === 0x4e &&
+      buffer[3] === 0x47 &&
+      buffer[4] === 0x0d &&
+      buffer[5] === 0x0a &&
+      buffer[6] === 0x1a &&
+      buffer[7] === 0x0a
+    ) return true;
+
+    // WEBP: RIFF....WEBP
+    if (
+      buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46 &&
+      buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50
+    ) return true;
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Middleware untuk upload single file dengan field name 'source_image'.
- * Tambahkan error handling khusus untuk Multer.
- *
- * Cara pakai:
- *   router.post('/generate', uploadSingleImage, handler)
+ * Tambahkan error handling khusus untuk Multer dan validasi Magic Bytes.
  */
 function uploadSingleImage(req, res, next) {
   const handler = upload.single('source_image');
 
   handler(req, res, (err) => {
-    if (!err) return next(); // Sukses
-
-    // Handle error dari Multer
-    if (err instanceof multer.MulterError) {
-      if (err.code === 'LIMIT_FILE_SIZE') {
+    if (err) {
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({
+            success: false,
+            message: `Ukuran file terlalu besar. Maksimal ${config.upload.maxSizeMb}MB.`,
+          });
+        }
         return res.status(400).json({
           success: false,
-          message: `Ukuran file terlalu besar. Maksimal ${config.upload.maxSizeMb}MB.`,
+          message: `Error upload: ${err.message}`,
         });
       }
-      return res.status(400).json({
-        success: false,
-        message: `Error upload: ${err.message}`,
-      });
-    }
-
-    // Error dari fileFilter (tipe file tidak didukung)
-    if (err) {
       return res.status(400).json({
         success: false,
         message: err.message,
       });
     }
+
+    // Jika file berhasil diupload, lakukan verifikasi Magic Bytes biner
+    if (req.file) {
+      const isValid = validateMagicBytes(req.file.path);
+      if (!isValid) {
+        // Hapus file palsu dari disk
+        try { fs.unlinkSync(req.file.path); } catch (_) {}
+        return res.status(400).json({
+          success: false,
+          message: 'File gambar tidak valid atau rusak (Header signature tidak sesuai).',
+        });
+      }
+    }
+
+    return next();
   });
 }
 

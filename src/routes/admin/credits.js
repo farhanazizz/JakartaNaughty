@@ -112,7 +112,44 @@ router.post('/:userId/deduct', (req, res) => {
 });
 
 // ============================================================
-// GET /api/admin/credits/:userId/history — History kredit
+// GET /api/admin/credits/logs — Global Credit Mutation Logs
+// ============================================================
+router.get('/logs', (req, res) => {
+  try {
+    const { getDb } = require('../../config/database');
+    const db = getDb();
+    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+    const offset = parseInt(req.query.offset) || 0;
+
+    const logs = db.prepare(`
+      SELECT
+        cl.*,
+        u.email as user_email,
+        adm.email as admin_email
+      FROM credit_logs cl
+      LEFT JOIN users u ON cl.user_id = u.id
+      LEFT JOIN users adm ON cl.changed_by_admin_id = adm.id
+      ORDER BY cl.created_at DESC
+      LIMIT ? OFFSET ?
+    `).all(limit, offset);
+
+    const total = db.prepare('SELECT COUNT(*) as count FROM credit_logs').get();
+
+    return res.json({
+      success: true,
+      data: {
+        logs,
+        pagination: { limit, offset, total: total.count },
+      },
+    });
+  } catch (err) {
+    logger.error('Credit logs error:', err.message);
+    return res.status(500).json({ success: false, message: 'Gagal memuat log kredit.' });
+  }
+});
+
+// ============================================================
+// GET /api/admin/credits/:userId/history — History kredit user
 // ============================================================
 router.get('/:userId/history', (req, res) => {
   const limit  = parseInt(req.query.limit) || 50;

@@ -40,13 +40,27 @@ function authMiddleware(req, res, next) {
   }
 
   try {
-    // Verifikasi dan decode token
-    const payload = verifyAccessToken(token);
+    // Verifikasi status user di database secara realtime
+    const { getDb } = require('../config/database');
+    const db = getDb();
+    const user = db.prepare('SELECT is_active, email FROM users WHERE id = ?').get(payload.sub);
+
+    if (!user || user.is_active !== 1) {
+      res.clearCookie('access_token');
+      res.clearCookie('refresh_token');
+      return res.status(403).json({
+        success: false,
+        message: user?.is_active === 2
+          ? 'Akun Anda telah DITANGGUHKAN (SUSPENDED) oleh administrator.'
+          : 'Akun Anda tidak aktif atau telah dinonaktifkan.',
+      });
+    }
 
     // Simpan data user ke request untuk dipakai di handler
     req.user = {
       id:    payload.sub,   // User ID
       role:  payload.role,  // 'user' atau 'admin'
+      email: user.email,
     };
 
     // Token valid, lanjut ke handler berikutnya

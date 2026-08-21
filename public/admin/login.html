@@ -1,164 +1,153 @@
 <!DOCTYPE html>
 <!--
   ============================================================
-  public/admin/login.html — Halaman Login Admin
+  public/admin/login.html — Jakarta Naughty Admin Gate (Stealth Mode)
   ============================================================
-  Admin login menggunakan Google OAuth (lebih aman).
-  Tidak ada form email/password untuk admin.
-  
-  Flow:
-  1. Klik "Login dengan Google"
-  2. Redirect ke /auth/google/admin
-  3. Google authenticate
-  4. Callback → cek whitelist email
-  5. Jika valid → redirect ke /admin/dashboard.html
-  6. Jika tidak valid → redirect ke sini dengan ?error=unauthorized
+  Hanya bisa dibuka jika ada valid Gate Key atau sudah terautentikasi.
   ============================================================
 -->
 <html lang="id" class="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Admin Login — Krea2 Edit</title>
+  <title>Admin Portal — Jakarta Naughty</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <style>body { font-family: 'Inter', sans-serif; }</style>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              DEFAULT: '#FF788D',
+              dark: '#e0536b',
+              light: '#FFDADA',
+              tint: '#FFF2F2',
+              emerald: '#165823',
+            }
+          },
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #080c14;
+    }
+    .glass-card {
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 120, 141, 0.18);
+    }
+  </style>
 </head>
 
-<body class="dark bg-slate-950 min-h-screen flex items-center justify-center p-4">
+<body class="min-h-screen flex items-center justify-center p-4 relative overflow-hidden text-slate-100">
 
-  <!-- Background grid pattern -->
-  <div class="absolute inset-0 pointer-events-none opacity-5"
-       style="background-image: linear-gradient(rgba(255,255,255,.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.1) 1px, transparent 1px); background-size: 50px 50px;">
-  </div>
+  <!-- Ambient Glow Background -->
+  <div class="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#FF788D]/15 rounded-full blur-3xl pointer-events-none"></div>
 
-  <div class="relative w-full max-w-sm text-center">
+  <div class="relative w-full max-w-sm text-center z-10">
 
     <!-- Badge Admin -->
-    <div class="inline-flex items-center gap-2 bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-semibold px-4 py-1.5 rounded-full mb-6">
-      <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+    <div class="inline-flex items-center gap-2 bg-[#FF788D]/10 border border-[#FF788D]/30 text-[#FFDADA] text-xs font-bold px-4 py-1.5 rounded-full mb-6 shadow-lg shadow-[#FF788D]/10">
+      <svg class="w-3.5 h-3.5 text-brand" fill="currentColor" viewBox="0 0 20 20">
         <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
       </svg>
-      ADMIN PANEL
+      ADMINISTRATOR GATE
     </div>
 
-    <!-- Logo -->
+    <!-- Brand Header -->
     <div class="mb-8">
-      <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-slate-800 border border-slate-700 mb-4">
-        <svg class="w-8 h-8 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-        </svg>
+      <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-[#FF788D] to-[#e0536b] text-white font-extrabold text-2xl shadow-xl shadow-[#FF788D]/25 mb-3">
+        JN
       </div>
-      <h1 class="text-2xl font-bold text-white">Krea2 Edit</h1>
-      <p class="text-slate-400 text-sm mt-1">Panel Administrator</p>
+      <h1 class="text-2xl font-black text-white tracking-tight">Jakarta Naughty</h1>
+      <p class="text-[#FFDADA] text-xs font-medium mt-1">Control Panel Administrator</p>
     </div>
 
     <!-- Card Login -->
-    <div class="bg-slate-800/80 backdrop-blur border border-slate-700 rounded-2xl p-8 shadow-2xl">
+    <div class="glass-card rounded-3xl p-7 shadow-2xl">
 
-      <!-- Error Message (muncul dari query param) -->
-      <div id="error-box" class="hidden mb-5 p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
-        <p id="error-msg" class="text-red-400 text-sm"></p>
+      <!-- Error Message -->
+      <div id="error-box" class="hidden mb-5 p-3 bg-red-950/60 border border-red-500/40 rounded-xl text-left">
+        <p id="error-msg" class="text-red-300 text-xs font-medium"></p>
       </div>
 
       <!-- Form Login Admin (Email & Password) -->
       <form id="admin-login-form" class="space-y-4 text-left mb-6">
         <div>
-          <label for="admin-email-input" class="block text-xs font-medium text-slate-300 mb-1">Email Admin</label>
+          <label for="admin-email-input" class="block text-xs font-bold text-slate-300 mb-1.5">Email Administrator</label>
           <input
             type="email"
             id="admin-email-input"
             required
-            placeholder="admin@email.com"
-            class="w-full px-3.5 py-2.5 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+            placeholder="admin@jakarta.com"
+            class="w-full px-3.5 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand text-xs font-medium"
           />
         </div>
         <div>
-          <label for="admin-pass-input" class="block text-xs font-medium text-slate-300 mb-1">Password</label>
+          <label for="admin-pass-input" class="block text-xs font-bold text-slate-300 mb-1.5">Password</label>
           <input
             type="password"
             id="admin-pass-input"
             required
             placeholder="••••••••"
-            class="w-full px-3.5 py-2.5 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+            class="w-full px-3.5 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand text-xs font-medium"
           />
         </div>
         <button
           type="submit"
           id="btn-admin-login"
-          class="w-full py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-xl transition-all duration-200 text-sm flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20"
+          class="w-full py-3 bg-gradient-to-r from-[#FF788D] to-[#e0536b] hover:opacity-90 text-white font-bold rounded-xl transition-all text-xs shadow-lg shadow-[#FF788D]/25 mt-2"
         >
-          <span id="btn-admin-text">Masuk sebagai Admin</span>
+          <span id="btn-admin-text">Masuk ke Admin Panel</span>
         </button>
       </form>
 
-      <!-- Divider -->
-      <div class="relative flex items-center justify-center mb-6">
-        <div class="border-t border-slate-700 w-full"></div>
-        <span class="bg-slate-800 px-3 text-xs text-slate-500 absolute uppercase">atau</span>
-      </div>
-
-      <!-- Tombol Login Google -->
-      <a
-        href="/auth/google/admin"
-        class="flex items-center justify-center gap-3 w-full py-2.5 px-4
-               bg-white hover:bg-gray-100 text-gray-800 font-semibold rounded-xl
-               transition-all duration-200 text-sm shadow-md"
-      >
-        <!-- Google Logo SVG -->
-        <svg class="w-4 h-4" viewBox="0 0 24 24">
-          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-        </svg>
-        Login dengan Google
-      </a>
-
-      <!-- Info keamanan -->
-      <div class="mt-6 pt-5 border-t border-slate-700">
-        <p class="text-slate-500 text-xs">
-          🔒 Hanya akun Google yang telah diotorisasi yang dapat mengakses panel ini.
-          Hubungi developer untuk mendaftarkan email admin.
+      <!-- Info Keamanan -->
+      <div class="pt-4 border-t border-slate-800">
+        <p class="text-slate-500 text-[11px] leading-relaxed">
+          🔒 Gerbang ini dilindungi oleh <strong class="text-slate-400">Stealth Shield</strong>. Semua percobaan akses tidak sah dicatat ke dalam audit log.
         </p>
       </div>
     </div>
 
-    <!-- Link ke halaman user -->
-    <p class="mt-6 text-slate-500 text-sm">
+    <!-- Link ke Halaman User -->
+    <p class="mt-6 text-slate-500 text-xs">
       Bukan admin?
-      <a href="/login.html" class="text-orange-400 hover:text-orange-300 transition-colors">Login sebagai user →</a>
+      <a href="/login.html" class="text-brand hover:text-brand-light transition-colors font-semibold">Buka Halaman Member →</a>
     </p>
 
   </div>
 
   <script>
-    // ============================================================
-    // Script halaman admin login
-    // ============================================================
+    // Cek apakah sudah login sebagai admin
+    (async () => {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.data?.role === 'admin') {
+            window.location.href = '/admin/dashboard.html';
+          }
+        }
+      } catch (_) {}
+    })();
 
-    /**
-     * Cek query parameter untuk menampilkan pesan error yang sesuai
-     */
-    const params   = new URLSearchParams(window.location.search);
-    const errorParam = params.get('error');
-    const errorBox = document.getElementById('error-box');
-    const errorMsg = document.getElementById('error-msg');
-
-    if (errorParam === 'unauthorized') {
-      errorBox.classList.remove('hidden');
-      errorMsg.textContent = '⚠️ Email kamu tidak terdaftar sebagai admin. Hubungi developer untuk mendapatkan akses.';
-    } else if (errorParam === 'oauth_failed') {
-      errorBox.classList.remove('hidden');
-      errorMsg.textContent = '⚠️ Proses login Google gagal. Coba lagi.';
-    }
-
-    // Handle submit form login admin (Email & Password)
-    const adminForm = document.getElementById('admin-login-form');
+    // Handle Form Submit
+    const adminForm  = document.getElementById('admin-login-form');
     const emailInput = document.getElementById('admin-email-input');
     const passInput  = document.getElementById('admin-pass-input');
     const btnSubmit  = document.getElementById('btn-admin-login');
     const btnText    = document.getElementById('btn-admin-text');
+    const errorBox   = document.getElementById('error-box');
+    const errorMsg   = document.getElementById('error-msg');
 
     adminForm.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -196,10 +185,9 @@
         errorMsg.textContent = 'Gagal terhubung ke server.';
       } finally {
         btnSubmit.disabled = false;
-        btnText.textContent = 'Masuk sebagai Admin';
+        btnText.textContent = 'Masuk ke Admin Panel';
       }
     });
   </script>
-
 </body>
 </html>

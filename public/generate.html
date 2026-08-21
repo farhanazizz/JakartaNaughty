@@ -1,49 +1,66 @@
 <!DOCTYPE html>
 <!--
   ============================================================
-  public/generate.html — Halaman Generate Gambar
-  ============================================================
-  Halaman utama untuk submit job generate.
-  
-  Flow:
-  1. User upload foto source
-  2. Isi positive prompt (dan optional negative prompt)
-  3. Klik Generate → POST /api/generate
-  4. Polling /api/jobs/:jobId setiap 3 detik
-  5. Tampilkan hasil saat selesai
+  public/generate.html — Jakarta Naughty Edit Photo Studio
   ============================================================
 -->
 <html lang="id" class="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Generate — Krea2 Edit</title>
+  <title>Edit Photo Studio — Jakarta Naughty</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              DEFAULT: '#FF788D',
+              dark: '#e0536b',
+              light: '#FFDADA',
+              tint: '#FFF2F2',
+              emerald: '#165823',
+            }
+          },
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
   <style>
-    body { font-family: 'Inter', sans-serif; opacity: 0; transition: opacity 0.15s ease-in; }
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      opacity: 0;
+      transition: opacity 0.2s ease-in-out;
+      background-color: #080c14;
+    }
     body.authorized { opacity: 1; }
-
-    /* Drag & drop area */
-    .drop-zone { transition: all 0.2s ease; }
-    .drop-zone.drag-over {
-      border-color: #f97316;
-      background-color: rgba(249, 115, 22, 0.05);
+    .glass-card {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 120, 141, 0.16);
     }
-
-    /* Progress bar animasi */
-    @keyframes progress-pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.6; }
+    .drop-zone {
+      border: 2px dashed rgba(255, 120, 141, 0.35);
+      transition: all 0.2s ease;
     }
-    .progress-pulse { animation: progress-pulse 1.5s infinite; }
+    .drop-zone.dragover {
+      border-color: #FF788D;
+      background: rgba(255, 120, 141, 0.08);
+      transform: scale(1.01);
+    }
   </style>
   <script>
-    // Guard langsung di head — cegah glitch sebelum login diverifikasi
+    // Zero-Flicker Guard
     (async () => {
       try {
         const res = await fetch('/api/auth/me', { credentials: 'include' });
-        if (!res.ok) throw new Error('unauthorized');
+        if (!res.ok) throw new Error();
         const reveal = () => document.body && document.body.classList.add('authorized');
         if (document.readyState === 'loading') {
           document.addEventListener('DOMContentLoaded', reveal);
@@ -57,553 +74,384 @@
   </script>
 </head>
 
-<body class="dark bg-slate-900 min-h-screen text-white">
+<body class="min-h-screen text-slate-100 flex flex-col">
 
-  <!-- ==================== NAVBAR ==================== -->
-  <nav class="border-b border-slate-700/50 bg-slate-800/50 backdrop-blur-sm sticky top-0 z-50">
-    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-      <a href="/dashboard.html" class="flex items-center gap-2 font-bold text-lg">
-        <span class="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center">
-          <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-          </svg>
-        </span>
-        Krea2 Edit
-      </a>
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed top-5 right-5 z-[9999] flex flex-col gap-3 pointer-events-none"></div>
+
+  <!-- Navbar -->
+  <header class="border-b border-slate-800/80 bg-[#0c121e]/90 backdrop-blur sticky top-0 z-40">
+    <div class="max-w-6xl mx-auto px-4 py-3.5 flex items-center justify-between">
+      <!-- Logo -->
       <div class="flex items-center gap-3">
-        <a href="/dashboard.html" class="text-slate-400 hover:text-white text-sm transition-colors">← Dashboard</a>
-        <div class="flex items-center gap-1.5 bg-slate-700 px-3 py-1.5 rounded-lg">
-          <span class="text-xs text-slate-400">Kredit:</span>
-          <span class="text-sm font-semibold text-orange-400" id="nav-credits">-</span>
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-[#FF788D] to-[#e0536b] flex items-center justify-center text-white font-black text-base shadow-lg shadow-[#FF788D]/20">
+          JN
+        </div>
+        <div>
+          <a href="/dashboard.html" class="font-extrabold text-white text-base tracking-tight hover:text-brand transition-colors">
+            Jakarta Naughty
+          </a>
+          <p class="text-[10px] text-[#FFDADA] font-semibold tracking-wider uppercase">Edit Photo Studio</p>
+        </div>
+      </div>
+
+      <!-- User Nav -->
+      <div class="flex items-center gap-3">
+        <a href="/dashboard.html" class="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 border border-slate-700 transition-colors">
+          ← Dashboard
+        </a>
+        <div class="px-3.5 py-1.5 rounded-full bg-[#FF788D]/10 border border-[#FF788D]/30 flex items-center gap-2">
+          <span class="text-xs text-[#FFDADA]">Saldo:</span>
+          <span class="text-xs font-black text-brand" id="user-credits-display">0</span>
+          <span class="text-[10px] text-slate-400">foto</span>
         </div>
       </div>
     </div>
-  </nav>
+  </header>
 
-  <!-- ==================== KONTEN UTAMA ==================== -->
-  <main class="max-w-6xl mx-auto px-4 py-8">
+  <!-- Studio Main Content -->
+  <main class="flex-1 max-w-6xl w-full mx-auto p-4 md:p-8">
+    <div class="mb-6">
+      <h1 class="text-2xl md:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2.5">
+        <span>📸</span> Edit Photo Studio
+      </h1>
+      <p class="text-xs text-slate-400 mt-1">Upload foto asli, berikan arahan gaya/kostum/suasana, dan biarkan AI studio menyempurnakannya.</p>
+    </div>
 
-    <h1 class="text-2xl font-bold mb-6">Generate Gambar</h1>
+    <!-- 2 Column Workspace Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-    <!-- Layout 2 kolom di desktop -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- LEFT: Input Panel (7 Cols) -->
+      <div class="lg:col-span-7 space-y-5">
+        <div class="glass-card rounded-3xl p-6 shadow-2xl">
 
-      <!-- ============== KOLOM KIRI: Form Input ============== -->
-      <div class="space-y-4">
+          <!-- Upload Dropzone -->
+          <div class="mb-5">
+            <label class="block text-xs font-bold text-slate-300 mb-2">1. Upload Foto Asli (Source Image)</label>
+            <div id="drop-zone" class="drop-zone rounded-2xl p-6 text-center cursor-pointer bg-slate-900/60 relative overflow-hidden group">
+              <input type="file" id="file-input" accept="image/jpeg,image/png" class="hidden" />
 
-        <!-- Upload Foto Source -->
-        <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5">
-          <h2 class="font-semibold mb-3 flex items-center gap-2">
-            <span class="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center text-xs font-bold">1</span>
-            Upload Foto Source
-          </h2>
-
-          <!-- Drag & Drop Zone -->
-          <div
-            id="drop-zone"
-            class="drop-zone border-2 border-dashed border-slate-600 rounded-xl p-8 text-center cursor-pointer hover:border-orange-500/50 transition-all"
-            onclick="document.getElementById('file-input').click()"
-          >
-            <!-- Preview gambar (tersembunyi) -->
-            <img id="image-preview" src="" alt="Preview" class="hidden w-full max-h-64 object-contain rounded-lg mb-4" />
-
-            <!-- Placeholder (tersembunyi jika ada preview) -->
-            <div id="upload-placeholder">
-              <div class="w-12 h-12 bg-slate-700 rounded-xl flex items-center justify-center mx-auto mb-3">
-                <svg class="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
+              <div id="upload-prompt-view" class="space-y-2">
+                <div class="w-12 h-12 rounded-2xl bg-brand/10 text-brand flex items-center justify-center mx-auto text-xl group-hover:scale-110 transition-transform">
+                  📁
+                </div>
+                <div class="font-bold text-xs text-white">Klik atau Tarik Foto ke Sini</div>
+                <div class="text-[11px] text-slate-500">Mendukung format JPG / PNG (Maks. 10MB)</div>
               </div>
-              <p class="text-slate-400 text-sm">
-                <span class="text-orange-400 font-medium">Klik untuk upload</span> atau drag & drop
-              </p>
-              <p class="text-slate-500 text-xs mt-1">JPEG atau PNG, maks 10MB</p>
-            </div>
 
-            <!-- Info file yang dipilih -->
-            <p id="file-name" class="hidden text-slate-400 text-xs mt-2"></p>
+              <!-- Preview Image View -->
+              <div id="upload-preview-view" class="hidden relative">
+                <img id="preview-image" class="max-h-64 mx-auto rounded-xl shadow-lg object-contain border border-slate-700" />
+                <button type="button" onclick="clearSelectedImage(event)" class="absolute top-2 right-2 p-1.5 bg-red-600/80 hover:bg-red-600 text-white rounded-lg text-xs font-bold shadow transition-colors">
+                  ✕ Ganti Foto
+                </button>
+              </div>
+            </div>
           </div>
 
-          <!-- Input file tersembunyi -->
-          <input
-            type="file"
-            id="file-input"
-            accept="image/jpeg,image/png"
-            class="hidden"
-          />
-
-          <!-- Tombol hapus foto -->
-          <button
-            id="btn-remove-image"
-            class="hidden mt-2 text-xs text-red-400 hover:text-red-300 transition-colors"
-            onclick="removeImage()"
-          >
-            ✕ Hapus foto
-          </button>
-        </div>
-
-        <!-- Positive Prompt -->
-        <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5">
-          <h2 class="font-semibold mb-3 flex items-center gap-2">
-            <span class="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center text-xs font-bold">2</span>
-            Prompt Positif
-            <span class="text-red-400 text-xs">*wajib</span>
-          </h2>
-          <textarea
-            id="positive-prompt"
-            rows="4"
-            placeholder="Deskripsikan hasil yang kamu inginkan...&#10;Contoh: a woman in a red dress walking in Paris, cinematic lighting, high quality"
-            class="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500
-                   focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none
-                   transition-all duration-200"
-          ></textarea>
-          <p id="prompt-char-count" class="text-xs text-slate-500 mt-1 text-right">0 karakter (min 10)</p>
-        </div>
-
-        <!-- Negative Prompt (collapsible) -->
-        <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5">
-          <button
-            id="toggle-negative"
-            class="w-full flex items-center justify-between text-left"
-            onclick="toggleNegative()"
-          >
-            <h2 class="font-semibold flex items-center gap-2">
-              <span class="w-6 h-6 bg-slate-600 rounded-full flex items-center justify-center text-xs font-bold">3</span>
-              Prompt Negatif
-              <span class="text-slate-500 text-xs font-normal">opsional</span>
-            </h2>
-            <svg id="negative-arrow" class="w-4 h-4 text-slate-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-          <div id="negative-section" class="hidden mt-3">
+          <!-- Prompt Input -->
+          <div class="mb-5">
+            <div class="flex items-center justify-between mb-2">
+              <label for="prompt-input" class="block text-xs font-bold text-slate-300">2. Deskripsi Pengeditan (Prompt)</label>
+              <span class="text-[10px] text-slate-500">Jelaskan perubahan yang diinginkan</span>
+            </div>
             <textarea
-              id="negative-prompt"
-              rows="3"
-              placeholder="Hal-hal yang TIDAK kamu inginkan di hasil...&#10;Contoh: blurry, low quality, text, watermark"
-              class="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500
-                     focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none"
+              id="prompt-input"
+              rows="4"
+              placeholder="Contoh: Ubah gaya pencahayaan menjadi cinematic glamour studio lighting, rambut ikal terurai natural, gaun satin merah elegan, latar belakang mewah..."
+              class="w-full px-4 py-3 bg-slate-900/90 border border-slate-700 rounded-2xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand leading-relaxed"
             ></textarea>
-          </div>
-        </div>
 
-        <!-- Info Kredit + Tombol Generate -->
-        <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5">
-          <!-- Info kredit -->
-          <div class="flex items-center justify-between mb-4">
-            <span class="text-sm text-slate-400">Biaya generate</span>
-            <span class="text-sm font-semibold">1 kredit</span>
-          </div>
-          <div class="flex items-center justify-between mb-4 pb-4 border-b border-slate-700">
-            <span class="text-sm text-slate-400">Saldo kamu</span>
-            <span class="text-sm font-semibold text-orange-400" id="credits-info">- kredit</span>
+            <!-- Quick Suggestions -->
+            <div class="mt-2.5 flex flex-wrap gap-1.5">
+              <span class="text-[10px] text-slate-500 py-1">Inspirasi:</span>
+              <button type="button" onclick="appendPrompt('cinematic studio portrait, professional lighting, photorealistic 8k')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[10px] border border-slate-700 font-medium">✨ Cinematic Studio</button>
+              <button type="button" onclick="appendPrompt('glamour aesthetic dress, soft rim light, luxury interior bokeh')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[10px] border border-slate-700 font-medium">👗 Luxury Glamour</button>
+              <button type="button" onclick="appendPrompt('natural outdoor golden hour sunset, warm glow, magazine editorial')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[10px] border border-slate-700 font-medium">🌅 Golden Hour</button>
+            </div>
           </div>
 
-          <!-- Pesan kredit habis -->
-          <div id="no-credits-msg" class="hidden mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-center">
-            <p class="text-red-400 text-sm">Kredit habis. Hubungi admin untuk mengisi kredit.</p>
-          </div>
-
-          <!-- Tombol Generate -->
+          <!-- Submit Button -->
           <button
+            type="button"
             id="btn-generate"
-            class="w-full py-3 bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed
-                   text-white font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-2"
-            onclick="submitGenerate()"
+            onclick="startGenerate()"
+            class="w-full py-3.5 bg-gradient-to-r from-[#FF788D] to-[#e0536b] hover:opacity-95 text-white font-extrabold rounded-2xl transition-all shadow-xl shadow-[#FF788D]/25 flex items-center justify-center gap-2.5 text-sm"
           >
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+            <span id="btn-generate-text">✨ Generate Foto Sekarang (1 Kredit)</span>
+            <svg id="btn-generate-spinner" class="hidden w-4 h-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
             </svg>
-            <span id="btn-generate-text">Generate Sekarang</span>
           </button>
+
+          <p class="text-[11px] text-slate-500 text-center mt-3">
+            Setiap proses generate akan menggunakan 1 kredit dari saldo akun Anda.
+          </p>
+
         </div>
+      </div>
 
-      </div><!-- End Kolom Kiri -->
+      <!-- RIGHT: Result & Status Panel (5 Cols) -->
+      <div class="lg:col-span-5 space-y-5">
+        <div class="glass-card rounded-3xl p-6 shadow-2xl min-h-[420px] flex flex-col justify-between">
 
-      <!-- ============== KOLOM KANAN: Status & Hasil ============== -->
-      <div>
+          <div>
+            <h3 class="font-bold text-sm text-white mb-3 flex items-center justify-between">
+              <span>🖼️ Hasil Studio</span>
+              <span id="job-status-badge" class="hidden px-2.5 py-0.5 rounded-full text-[10px] font-bold"></span>
+            </h3>
 
-        <!-- State: Idle (belum ada generate) -->
-        <div id="state-idle" class="bg-slate-800 border border-slate-700 rounded-2xl p-8 text-center h-full flex flex-col items-center justify-center min-h-64">
-          <div class="w-16 h-16 bg-slate-700 rounded-2xl flex items-center justify-center mb-4">
-            <svg class="w-8 h-8 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <p class="text-slate-400 font-medium">Hasil generate akan muncul di sini</p>
-          <p class="text-slate-500 text-sm mt-1">Upload foto dan isi prompt, lalu klik Generate</p>
-        </div>
+            <!-- Placeholder State -->
+            <div id="result-placeholder" class="border border-slate-800 rounded-2xl p-10 text-center bg-slate-900/40 my-6">
+              <div class="text-4xl mb-3">🎨</div>
+              <div class="font-bold text-xs text-slate-300">Hasil Foto Akan Muncul di Sini</div>
+              <div class="text-[11px] text-slate-500 mt-1">Upload foto dan klik Generate untuk memulai rendering studio.</div>
+            </div>
 
-        <!-- State: Processing (menunggu/diproses) -->
-        <div id="state-processing" class="hidden bg-slate-800 border border-slate-700 rounded-2xl p-8 text-center">
-          <!-- Spinner animasi -->
-          <div class="w-16 h-16 border-4 border-slate-700 border-t-orange-500 rounded-full animate-spin mx-auto mb-6"></div>
+            <!-- Loading Processing State -->
+            <div id="result-processing" class="hidden border border-brand/30 rounded-2xl p-8 text-center bg-brand/5 my-6 space-y-4">
+              <div class="w-12 h-12 rounded-2xl bg-brand/20 text-brand flex items-center justify-center mx-auto text-2xl animate-spin">
+                ⚙️
+              </div>
+              <div>
+                <div class="font-bold text-sm text-white" id="processing-title">Sedang Menghubungi GPU Studio...</div>
+                <div class="text-xs text-brand font-semibold mt-1" id="processing-desc">Harap tunggu sebentar</div>
+              </div>
+            </div>
 
-          <h3 class="font-semibold text-lg mb-2" id="processing-title">Menunggu antrian...</h3>
-          <p class="text-slate-400 text-sm" id="processing-desc">Posisi antrian: #1</p>
-
-          <!-- Progress indicator -->
-          <div class="mt-6 flex items-center justify-center gap-2">
-            <div class="flex gap-1">
-              <div class="w-2 h-2 bg-orange-500 rounded-full progress-pulse" style="animation-delay: 0s"></div>
-              <div class="w-2 h-2 bg-orange-500 rounded-full progress-pulse" style="animation-delay: 0.3s"></div>
-              <div class="w-2 h-2 bg-orange-500 rounded-full progress-pulse" style="animation-delay: 0.6s"></div>
+            <!-- Completed Result State -->
+            <div id="result-completed" class="hidden my-4 space-y-4">
+              <div class="rounded-2xl overflow-hidden border border-slate-700 shadow-2xl relative group bg-black">
+                <img id="result-image" class="w-full object-contain max-h-[380px] mx-auto" />
+              </div>
             </div>
           </div>
 
-          <p class="text-slate-500 text-xs mt-4">Jangan tutup halaman ini</p>
-        </div>
-
-        <!-- State: Done (hasil sudah siap) -->
-        <div id="state-done" class="hidden bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden">
-          <!-- Gambar hasil -->
-          <div class="relative">
-            <img id="result-image" src="" alt="Hasil generate" class="w-full" />
-            <!-- Badge sukses -->
-            <div class="absolute top-3 left-3 bg-green-500 text-white text-xs font-semibold px-3 py-1 rounded-full">
-              ✅ Selesai
-            </div>
+          <!-- Download Button -->
+          <div id="result-action-box" class="hidden pt-4 border-t border-slate-800">
+            <a
+              id="btn-download-result"
+              href="#"
+              target="_blank"
+              download="jakarta_naughty_result.png"
+              class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 border border-slate-700 transition-colors shadow"
+            >
+              📥 Download Foto Resolusi Tinggi
+            </a>
           </div>
 
-          <!-- Info + Tombol Download -->
-          <div class="p-5">
-            <div class="text-xs text-slate-400 space-y-1 mb-4" id="result-info"></div>
-            <div class="flex gap-2">
-              <a id="btn-download" href="#" download class="flex-1 flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2.5 rounded-xl transition-colors text-sm">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                Download
-              </a>
-              <button onclick="resetForm()" class="px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl transition-colors text-sm">
-                Generate Lagi
-              </button>
-            </div>
-          </div>
         </div>
+      </div>
 
-        <!-- State: Error -->
-        <div id="state-error" class="hidden bg-slate-800 border border-red-500/30 rounded-2xl p-8 text-center">
-          <div class="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center mb-4 mx-auto">
-            <svg class="w-8 h-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-            </svg>
-          </div>
-          <h3 class="font-semibold text-red-400 mb-2">Generate Gagal</h3>
-          <p class="text-slate-400 text-sm" id="error-detail">Terjadi kesalahan.</p>
-          <button onclick="resetForm()" class="mt-4 px-6 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl transition-colors text-sm">
-            Coba Lagi
-          </button>
-        </div>
-
-      </div><!-- End Kolom Kanan -->
-
-    </div><!-- End Grid -->
-
+    </div>
   </main>
 
   <script>
-    // ============================================================
-    // Script halaman Generate
-    // ============================================================
+    let userCredits = 0;
+    let selectedFile = null;
+    let pollingInterval = null;
 
-    // State aplikasi
-    let selectedFile   = null;   // File yang dipilih user
-    let currentJobId   = null;   // Job ID yang sedang aktif
-    let pollInterval   = null;   // Interval polling
-    let userCredits    = 0;      // Saldo kredit user
-
-    // --- Referensi elemen DOM ---
-    const dropZone      = document.getElementById('drop-zone');
-    const fileInput     = document.getElementById('file-input');
-    const btnGenerate   = document.getElementById('btn-generate');
-    const posPrompt     = document.getElementById('positive-prompt');
-    const negPrompt     = document.getElementById('negative-prompt');
-
-    // ============================================================
-    // Autentikasi & Load Data Awal
-    // ============================================================
-    (async () => {
-      const meRes = await fetch('/api/auth/me', { credentials: 'include' });
-      if (!meRes.ok) {
-        window.location.href = '/login.html';
-        return;
-      }
-      const me = (await meRes.json()).data;
-      userCredits = me.credits;
-      updateCreditDisplay();
-    })();
-
-    /**
-     * Update tampilan kredit di navbar dan form
-     */
-    function updateCreditDisplay() {
-      document.getElementById('nav-credits').textContent = userCredits;
-      document.getElementById('credits-info').textContent = `${userCredits} kredit`;
-
-      if (userCredits < 1) {
-        document.getElementById('no-credits-msg').classList.remove('hidden');
-        btnGenerate.disabled = true;
-      } else {
-        document.getElementById('no-credits-msg').classList.add('hidden');
-      }
+    // Toast Notification
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      const bgColors = {
+        success: 'bg-[#165823] text-emerald-100 border border-emerald-500/40',
+        error: 'bg-red-950 text-red-100 border border-red-500/40',
+        info: 'bg-slate-900 text-brand-light border border-brand/30',
+      };
+      toast.className = `px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold pointer-events-auto flex items-center gap-2.5 transition-all transform duration-300 translate-y-2 opacity-0 ${bgColors[type] || bgColors.info}`;
+      toast.innerHTML = `<span>${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span><span>${message}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => { toast.classList.remove('translate-y-2', 'opacity-0'); }, 10);
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
     }
 
-    // ============================================================
-    // Upload File Handling
-    // ============================================================
+    // Init User Data
+    (async function init() {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        if (!res.ok) { window.location.href = '/login.html'; return; }
+        const d = await res.json();
+        userCredits = d.data.credits || 0;
+        document.getElementById('user-credits-display').textContent = userCredits;
+      } catch (_) {}
+    })();
 
-    /**
-     * Handle file yang dipilih (dari input atau drop)
-     * @param {File} file
-     */
-    function handleFile(file) {
-      // Validasi tipe file
+    // Drag and Drop & File Upload Handling
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files?.length > 0) {
+        handleFileSelect(e.dataTransfer.files[0]);
+      }
+    });
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files?.length > 0) handleFileSelect(e.target.files[0]);
+    });
+
+    function handleFileSelect(file) {
       if (!['image/jpeg', 'image/png'].includes(file.type)) {
-        alert('Hanya file JPEG atau PNG yang diterima.');
+        showToast('Hanya file JPEG atau PNG yang didukung.', 'error');
         return;
       }
-
-      // Validasi ukuran (10MB max)
       if (file.size > 10 * 1024 * 1024) {
-        alert('Ukuran file maksimal 10MB.');
+        showToast('Ukuran file maksimal 10MB.', 'error');
         return;
       }
-
       selectedFile = file;
 
-      // Preview gambar
       const reader = new FileReader();
       reader.onload = (e) => {
-        const preview = document.getElementById('image-preview');
-        preview.src = e.target.result;
-        preview.classList.remove('hidden');
-        document.getElementById('upload-placeholder').classList.add('hidden');
-        document.getElementById('file-name').textContent = `📎 ${file.name}`;
-        document.getElementById('file-name').classList.remove('hidden');
-        document.getElementById('btn-remove-image').classList.remove('hidden');
+        document.getElementById('preview-image').src = e.target.result;
+        document.getElementById('upload-prompt-view').classList.add('hidden');
+        document.getElementById('upload-preview-view').classList.remove('hidden');
       };
       reader.readAsDataURL(file);
     }
 
-    /**
-     * Hapus foto yang dipilih
-     */
-    function removeImage() {
+    function clearSelectedImage(e) {
+      e.stopPropagation();
       selectedFile = null;
       fileInput.value = '';
-      document.getElementById('image-preview').classList.add('hidden');
-      document.getElementById('image-preview').src = '';
-      document.getElementById('upload-placeholder').classList.remove('hidden');
-      document.getElementById('file-name').classList.add('hidden');
-      document.getElementById('btn-remove-image').classList.add('hidden');
+      document.getElementById('upload-prompt-view').classList.remove('hidden');
+      document.getElementById('upload-preview-view').classList.add('hidden');
     }
 
-    // Event listener file input
-    fileInput.addEventListener('change', (e) => {
-      if (e.target.files[0]) handleFile(e.target.files[0]);
-    });
-
-    // Drag & Drop events
-    dropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dropZone.classList.add('drag-over');
-    });
-    dropZone.addEventListener('dragleave', () => {
-      dropZone.classList.remove('drag-over');
-    });
-    dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('drag-over');
-      const file = e.dataTransfer.files[0];
-      if (file) handleFile(file);
-    });
-
-    // Hitung karakter prompt
-    posPrompt.addEventListener('input', () => {
-      const len = posPrompt.value.length;
-      const counter = document.getElementById('prompt-char-count');
-      counter.textContent = `${len} karakter (min 10)`;
-      counter.classList.toggle('text-red-400', len > 0 && len < 10);
-      counter.classList.toggle('text-slate-500', len === 0 || len >= 10);
-    });
-
-    // ============================================================
-    // Toggle Negative Prompt Section
-    // ============================================================
-    function toggleNegative() {
-      const section = document.getElementById('negative-section');
-      const arrow   = document.getElementById('negative-arrow');
-      const isHidden = section.classList.contains('hidden');
-
-      section.classList.toggle('hidden', !isHidden);
-      arrow.style.transform = isHidden ? 'rotate(180deg)' : '';
+    function appendPrompt(text) {
+      const ta = document.getElementById('prompt-input');
+      ta.value = ta.value ? `${ta.value.trim()}, ${text}` : text;
+      ta.focus();
     }
 
-    // ============================================================
-    // Submit Generate
-    // ============================================================
-    async function submitGenerate() {
-      // Validasi sebelum submit
+    // Start Generation
+    async function startGenerate() {
       if (!selectedFile) {
-        alert('Pilih foto source terlebih dahulu.');
+        showToast('Silakan upload foto terlebih dahulu.', 'error');
         return;
       }
-
-      const promptText = posPrompt.value.trim();
-      if (promptText.length < 10) {
-        alert('Positive prompt minimal 10 karakter.');
-        posPrompt.focus();
+      const prompt = document.getElementById('prompt-input').value.trim();
+      if (!prompt || prompt.length < 5) {
+        showToast('Deskripsi prompt minimal 5 karakter.', 'error');
         return;
       }
-
       if (userCredits < 1) {
-        alert('Kredit tidak cukup.');
+        showToast('Saldo kredit Anda habis. Silakan hubungi admin untuk top-up.', 'error');
         return;
       }
 
-      // Set UI ke loading state
-      btnGenerate.disabled = true;
-      document.getElementById('btn-generate-text').textContent = 'Mengupload...';
-      showState('processing');
-      document.getElementById('processing-title').textContent = 'Mengupload gambar...';
-      document.getElementById('processing-desc').textContent = 'Sedang mengirim data ke server';
+      const btn = document.getElementById('btn-generate');
+      const btnText = document.getElementById('btn-generate-text');
+      const btnSpinner = document.getElementById('btn-generate-spinner');
+
+      btn.disabled = true;
+      btnText.textContent = 'Mengirim ke Studio...';
+      btnSpinner.classList.remove('hidden');
+
+      // Update Result UI
+      document.getElementById('result-placeholder').classList.add('hidden');
+      document.getElementById('result-completed').classList.add('hidden');
+      document.getElementById('result-action-box').classList.add('hidden');
+      document.getElementById('result-processing').classList.remove('hidden');
+      document.getElementById('processing-title').textContent = 'Memulai Antrian Studio...';
+
+      const formData = new FormData();
+      formData.append('source_image', selectedFile);
+      formData.append('positive_prompt', prompt);
 
       try {
-        // Build FormData
-        const formData = new FormData();
-        formData.append('source_image',    selectedFile);
-        formData.append('positive_prompt', promptText);
-        formData.append('negative_prompt', negPrompt.value.trim());
-
-        // Submit ke API
         const res = await fetch('/api/generate', {
           method: 'POST',
           credentials: 'include',
           body: formData,
         });
 
-        const data = await res.json();
+        const d = await res.json();
 
-        if (!res.ok || !data.success) {
-          showState('error');
-          document.getElementById('error-detail').textContent = data.message || 'Gagal submit generate.';
-          resetBtnGenerate();
-          return;
+        if (res.ok && d.success) {
+          userCredits = Math.max(0, userCredits - 1);
+          document.getElementById('user-credits-display').textContent = userCredits;
+          showToast('Job berhasil masuk antrian studio!', 'success');
+
+          // Start polling job status
+          pollJobStatus(d.data.jobId);
+        } else {
+          showToast(d.message || 'Gagal memulai generate.', 'error');
+          resetGenerateButton();
+          document.getElementById('result-processing').classList.add('hidden');
+          document.getElementById('result-placeholder').classList.remove('hidden');
         }
-
-        // Berhasil — mulai polling
-        currentJobId = data.data.jobId;
-        userCredits  = Math.max(0, userCredits - 1);
-        updateCreditDisplay();
-
-        document.getElementById('processing-title').textContent = 'Menunggu antrian...';
-        document.getElementById('processing-desc').textContent =
-          `Posisi antrian: #${data.data.queuePosition}`;
-
-        // Mulai polling setiap 3 detik
-        pollInterval = setInterval(pollJobStatus, 3000);
-
       } catch (err) {
-        showState('error');
-        document.getElementById('error-detail').textContent = 'Tidak bisa terhubung ke server.';
-        resetBtnGenerate();
+        showToast('Gagal terhubung ke server: ' + err.message, 'error');
+        resetGenerateButton();
       }
     }
 
-    /**
-     * Poll status job dari API
-     */
-    async function pollJobStatus() {
-      if (!currentJobId) return;
+    function pollJobStatus(jobId) {
+      if (pollingInterval) clearInterval(pollingInterval);
 
-      try {
-        const res  = await fetch(`/api/jobs/${currentJobId}`, { credentials: 'include' });
-        const data = await res.json();
+      pollingInterval = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/jobs/${jobId}`, { credentials: 'include' });
+          if (!res.ok) return;
+          const d = await res.json();
+          const job = d.data;
 
-        if (!res.ok || !data.success) return;
+          if (job.status === 'processing') {
+            document.getElementById('processing-title').textContent = 'GPU Studio Sedang Merender Foto...';
+            document.getElementById('processing-desc').textContent = 'Proses AI sedang berlangsung...';
+          } else if (job.status === 'pending') {
+            document.getElementById('processing-title').textContent = `Menunggu Antrian Studio (Posisi ke-${job.queuePosition || 1})`;
+            document.getElementById('processing-desc').textContent = 'GPU akan segera memproses foto Anda.';
+          } else if (job.status === 'done') {
+            clearInterval(pollingInterval);
+            resetGenerateButton();
+            document.getElementById('result-processing').classList.add('hidden');
 
-        const job = data.data;
+            const imgUrl = `/api/jobs/${jobId}/image?t=${Date.now()}`;
+            document.getElementById('result-image').src = imgUrl;
+            document.getElementById('btn-download-result').href = imgUrl;
+            document.getElementById('result-completed').classList.remove('hidden');
+            document.getElementById('result-action-box').classList.remove('hidden');
 
-        if (job.status === 'pending') {
-          document.getElementById('processing-title').textContent = 'Menunggu antrian...';
-          document.getElementById('processing-desc').textContent =
-            `Posisi antrian: #${job.queuePosition || '?'}`;
-
-        } else if (job.status === 'processing') {
-          document.getElementById('processing-title').textContent = 'Sedang diproses...';
-          document.getElementById('processing-desc').textContent = 'AI sedang mengerjakan gambarmu';
-
-        } else if (job.status === 'done') {
-          // Selesai!
-          clearInterval(pollInterval);
-          showResult(job);
-
-        } else if (job.status === 'failed') {
-          // Gagal
-          clearInterval(pollInterval);
-          showState('error');
-          document.getElementById('error-detail').textContent =
-            job.errorMessage || 'Generate gagal. Kredit sudah dikembalikan.';
-          resetBtnGenerate();
+            showToast('Foto selesai dirender!', 'success');
+          } else if (job.status === 'failed') {
+            clearInterval(pollingInterval);
+            resetGenerateButton();
+            document.getElementById('result-processing').classList.add('hidden');
+            document.getElementById('result-placeholder').classList.remove('hidden');
+            showToast('Generate gagal. Kredit Anda telah dikembalikan secara otomatis.', 'error');
+            // Refresh balance
+            const meRes = await fetch('/api/auth/me', { credentials: 'include' });
+            if (meRes.ok) {
+              const meData = await meRes.json();
+              document.getElementById('user-credits-display').textContent = meData.data.credits;
+            }
+          }
+        } catch (e) {
+          console.error('Polling error:', e);
         }
-
-      } catch (err) {
-        console.error('Poll error:', err);
-      }
+      }, 3000);
     }
 
-    /**
-     * Tampilkan hasil generate
-     * @param {Object} job
-     */
-    function showResult(job) {
-      showState('done');
-
-      const imgUrl = `/api/jobs/${job.id}/image`;
-      document.getElementById('result-image').src = imgUrl;
-
-      document.getElementById('result-info').innerHTML = `
-        <p>Prompt: ${job.positivePrompt || posPrompt.value}</p>
-        ${job.seed ? `<p>Seed: ${job.seed}</p>` : ''}
-        <p>Selesai: ${new Date(job.completedAt).toLocaleString('id-ID')}</p>
-      `;
-
-      const downloadBtn = document.getElementById('btn-download');
-      downloadBtn.href     = imgUrl;
-      downloadBtn.download = `krea2_${job.id}.png`;
-
-      resetBtnGenerate();
-    }
-
-    /**
-     * Tampilkan state tertentu di kolom kanan
-     * @param {'idle'|'processing'|'done'|'error'} state
-     */
-    function showState(state) {
-      ['idle', 'processing', 'done', 'error'].forEach((s) => {
-        document.getElementById(`state-${s}`).classList.toggle('hidden', s !== state);
-      });
-    }
-
-    /**
-     * Reset tombol generate ke state normal
-     */
-    function resetBtnGenerate() {
-      btnGenerate.disabled = userCredits < 1;
-      document.getElementById('btn-generate-text').textContent = 'Generate Sekarang';
-    }
-
-    /**
-     * Reset form untuk generate baru
-     */
-    function resetForm() {
-      clearInterval(pollInterval);
-      currentJobId = null;
-      showState('idle');
-      resetBtnGenerate();
+    function resetGenerateButton() {
+      const btn = document.getElementById('btn-generate');
+      const btnText = document.getElementById('btn-generate-text');
+      const btnSpinner = document.getElementById('btn-generate-spinner');
+      btn.disabled = false;
+      btnText.textContent = '✨ Generate Foto Sekarang (1 Kredit)';
+      btnSpinner.classList.add('hidden');
     }
   </script>
-
 </body>
 </html>

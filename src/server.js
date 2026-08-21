@@ -124,6 +124,11 @@ app.use('/api/generate', generateRoutes);
 app.use('/api/jobs',     jobsRoutes);
 app.use('/api/user',     userRoutes);
 
+// --- Admin Stealth Shield (Anti-Scanning Fake 404) ---
+const { adminShield } = require('./middleware/adminShield');
+app.use('/admin', adminShield);
+app.use('/api/admin', adminShield);
+
 // Admin routes — dilindungi oleh authMiddleware + adminAuthMiddleware
 app.use('/api/admin', adminRoutes);
 
