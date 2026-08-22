@@ -179,11 +179,16 @@ const requiredDirs = [
 ];
 
 requiredDirs.forEach((dir) => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-    logger.info(`Folder dibuat: ${dir}/`);
+  try {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+      logger.info(`Folder dibuat: ${dir}/`);
+    }
+  } catch (dirErr) {
+    logger.warn(`Peringatan: Gagal membuat folder ${dir}: ${dirErr.message}`);
   }
 });
+
 
 /**
  * Memastikan akun admin default otomatis tersedia saat server pertama kali dijalankan.
