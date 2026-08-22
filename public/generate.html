@@ -54,6 +54,14 @@
       background: rgba(255, 120, 141, 0.08);
       transform: scale(1.01);
     }
+    .res-card {
+      transition: all 0.2s ease-in-out;
+    }
+    .res-card.active {
+      border-color: #FF788D;
+      background: rgba(255, 120, 141, 0.12);
+      box-shadow: 0 0 20px -5px rgba(255, 120, 141, 0.3);
+    }
   </style>
   <script>
     // Zero-Flicker Authentication Guard
@@ -127,7 +135,7 @@
       <h1 class="text-2xl md:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2.5">
         <span>📸</span> Edit Photo Studio
       </h1>
-      <p class="text-xs text-slate-400 mt-1">Upload a source photo, describe your desired style, outfit, or ambiance, and let the AI studio refine it.</p>
+      <p class="text-xs text-slate-400 mt-1">Upload a source photo, choose output resolution, describe your desired style, and let the AI studio refine it.</p>
     </div>
 
     <!-- 2 Column Workspace Grid -->
@@ -137,7 +145,7 @@
       <div class="lg:col-span-7 space-y-5">
         <div class="glass-card rounded-3xl p-6 shadow-2xl">
 
-          <!-- Upload Dropzone -->
+          <!-- 1. Upload Dropzone -->
           <div class="mb-5">
             <label class="block text-xs font-bold text-slate-300 mb-2">1. Upload Source Image</label>
             <div id="drop-zone" class="drop-zone rounded-2xl p-6 text-center cursor-pointer bg-slate-900/60 relative overflow-hidden group">
@@ -161,10 +169,58 @@
             </div>
           </div>
 
-          <!-- Prompt Input -->
+          <!-- 2. Output Resolution & Quality Selector (1MP vs 2MP) -->
+          <div class="mb-5">
+            <label class="block text-xs font-bold text-slate-300 mb-2">2. Output Resolution & Quality</label>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              
+              <!-- 1 MP Option -->
+              <div
+                id="res-card-1mp"
+                onclick="selectResolution('1mp')"
+                class="res-card active p-3.5 rounded-2xl border border-slate-700/80 bg-slate-900/60 cursor-pointer flex flex-col justify-between"
+              >
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="font-extrabold text-xs text-white flex items-center gap-1.5">
+                    <span id="check-1mp" class="text-brand font-bold">●</span> Standard Quality
+                  </span>
+                  <span class="px-2 py-0.5 rounded-full bg-slate-800 text-[#FFDADA] text-[10px] font-bold border border-slate-700">
+                    1 Credit
+                  </span>
+                </div>
+                <div class="text-[11px] text-slate-400">1024 × 1024 px (1 Megapixel)</div>
+                <div class="text-[10px] text-emerald-400 mt-2 font-medium flex items-center gap-1">
+                  <span>⚡</span> Fast Render (~50s)
+                </div>
+              </div>
+
+              <!-- 2 MP Option -->
+              <div
+                id="res-card-2mp"
+                onclick="selectResolution('2mp')"
+                class="res-card p-3.5 rounded-2xl border border-slate-700/80 bg-slate-900/60 cursor-pointer flex flex-col justify-between"
+              >
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="font-extrabold text-xs text-white flex items-center gap-1.5">
+                    <span id="check-2mp" class="text-slate-600 font-bold">○</span> Ultra HD Detail
+                  </span>
+                  <span class="px-2 py-0.5 rounded-full bg-brand/20 text-brand text-[10px] font-bold border border-brand/30">
+                    2 Credits
+                  </span>
+                </div>
+                <div class="text-[11px] text-slate-400">1440 × 1440 px / 2K (2 Megapixels)</div>
+                <div class="text-[10px] text-brand-light mt-2 font-medium flex items-center gap-1">
+                  <span>✨</span> Maximum Clarity & Fine Textures (~113s)
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- 3. Prompt Input -->
           <div class="mb-5">
             <div class="flex items-center justify-between mb-2">
-              <label for="prompt-input" class="block text-xs font-bold text-slate-300">2. Editing Description (Prompt)</label>
+              <label for="prompt-input" class="block text-xs font-bold text-slate-300">3. Editing Description (Prompt)</label>
               <span class="text-[10px] text-slate-500">Describe the changes or atmosphere you want</span>
             </div>
             <textarea
@@ -245,8 +301,8 @@
             </svg>
           </button>
 
-          <p class="text-[11px] text-slate-500 text-center mt-3">
-            Each generation uses 1 credit from your account balance. In case of any technical failure, your credit is refunded automatically.
+          <p class="text-[11px] text-slate-500 text-center mt-3" id="cost-hint-text">
+            Standard 1MP uses 1 credit. In case of any technical failure, your credit is refunded automatically.
           </p>
 
         </div>
@@ -356,7 +412,39 @@
   <script>
     let userCredits = 0;
     let selectedFile = null;
+    let selectedResolution = '1mp';
     let pollingInterval = null;
+
+    // Select Output Resolution (1MP vs 2MP)
+    function selectResolution(res) {
+      selectedResolution = res;
+      const card1 = document.getElementById('res-card-1mp');
+      const card2 = document.getElementById('res-card-2mp');
+      const check1 = document.getElementById('check-1mp');
+      const check2 = document.getElementById('check-2mp');
+      const btnText = document.getElementById('btn-generate-text');
+      const hintText = document.getElementById('cost-hint-text');
+
+      if (res === '2mp') {
+        card1.classList.remove('active');
+        card2.classList.add('active');
+        check1.textContent = '○';
+        check1.className = 'text-slate-600 font-bold';
+        check2.textContent = '●';
+        check2.className = 'text-brand font-bold';
+        btnText.textContent = '✨ Generate Artwork Now (2 Credits)';
+        hintText.textContent = 'Ultra HD 2MP uses 2 credits. In case of any technical failure, your credits are refunded automatically.';
+      } else {
+        card2.classList.remove('active');
+        card1.classList.add('active');
+        check2.textContent = '○';
+        check2.className = 'text-slate-600 font-bold';
+        check1.textContent = '●';
+        check1.className = 'text-brand font-bold';
+        btnText.textContent = '✨ Generate Artwork Now (1 Credit)';
+        hintText.textContent = 'Standard 1MP uses 1 credit. In case of any technical failure, your credit is refunded automatically.';
+      }
+    }
 
     // Toast Notification
     function showToast(message, type = 'success') {
@@ -491,8 +579,10 @@
         showToast('Prompt description must be at least 5 characters.', 'error');
         return;
       }
-      if (userCredits < 1) {
-        showToast('Your credit balance is empty. Please contact admin for top-up.', 'error');
+
+      const creditsRequired = selectedResolution === '2mp' ? 2 : 1;
+      if (userCredits < creditsRequired) {
+        showToast(`Insufficient credits. You need ${creditsRequired} credit(s) for ${selectedResolution.toUpperCase()} generation (current balance: ${userCredits}).`, 'error');
         return;
       }
 
@@ -514,6 +604,7 @@
       const formData = new FormData();
       formData.append('source_image', selectedFile);
       formData.append('positive_prompt', prompt);
+      formData.append('resolution', selectedResolution);
 
       const negPrompt = (document.getElementById('negative-prompt-input')?.value || '').trim();
       if (negPrompt) {
@@ -538,9 +629,9 @@
         const d = await res.json();
 
         if (res.ok && d.success) {
-          userCredits = Math.max(0, userCredits - 1);
+          userCredits = Math.max(0, userCredits - creditsRequired);
           document.getElementById('user-credits-display').textContent = userCredits;
-          showToast('Job queued in studio successfully!', 'success');
+          showToast(`Job queued in studio successfully! (${selectedResolution.toUpperCase()})`, 'success');
 
           // Start polling job status
           pollJobStatus(d.data.jobId);
@@ -595,7 +686,7 @@
             resetGenerateButton();
             document.getElementById('result-processing').classList.add('hidden');
             document.getElementById('result-placeholder').classList.remove('hidden');
-            showToast('Generation failed. Your credit has been refunded automatically.', 'error');
+            showToast('Generation failed. Your credits have been refunded automatically.', 'error');
             syncUserCredits();
           }
         } catch (e) {
@@ -609,7 +700,8 @@
       const btnText = document.getElementById('btn-generate-text');
       const btnSpinner = document.getElementById('btn-generate-spinner');
       btn.disabled = false;
-      btnText.textContent = '✨ Generate Artwork Now (1 Credit)';
+      const creditsRequired = selectedResolution === '2mp' ? 2 : 1;
+      btnText.textContent = `✨ Generate Artwork Now (${creditsRequired} Credit${creditsRequired > 1 ? 's' : ''})`;
       btnSpinner.classList.add('hidden');
     }
   </script>

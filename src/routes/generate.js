@@ -74,6 +74,8 @@ router.post(
       const negativePrompt = (req.body.negative_prompt || '').trim();
       const seed = parseInt(req.body.seed) || -1; // -1 = random
       const refBoost = parseFloat(req.body.ref_boost) || 4.2; // 4.2 = default fidelity
+      const resolution = String(req.body.resolution || '1mp').toLowerCase().trim() === '2mp' ? '2mp' : '1mp';
+      const creditsNeeded = resolution === '2mp' ? 2 : 1;
 
       // -------------------------------------------------------
       // Cek saldo kredit user
@@ -86,11 +88,11 @@ router.post(
         return res.status(403).json({ success: false, message: 'User account not found.' });
       }
 
-      if (user.credits < 1) {
+      if (user.credits < creditsNeeded) {
         fs.unlink(req.file.path, () => {});
         return res.status(403).json({
           success: false,
-          message: 'Insufficient credits. Please contact admin for top-up.',
+          message: `Insufficient credits. This generation requires ${creditsNeeded} credit(s), but you currently have ${user.credits} credit(s). Please top-up.`,
         });
       }
 
@@ -98,7 +100,7 @@ router.post(
       // Potong kredit SEBELUM enqueue (atomic)
       // Jika enqueue gagal, kredit di-refund
       // -------------------------------------------------------
-      const deductResult = deductCredit(userId, 1, 'Generate image');
+      const deductResult = deductCredit(userId, creditsNeeded, `Generate image (${resolution.toUpperCase()})`);
 
       if (!deductResult.success) {
         fs.unlink(req.file.path, () => {});
@@ -120,12 +122,14 @@ router.post(
           negativePrompt,
           seed,
           refBoost,
+          resolution,
+          creditsUsed: creditsNeeded,
         });
       } catch (enqueueErr) {
 
         // Enqueue gagal — refund kredit agar user tidak rugi
-        logger.error(`Enqueue gagal untuk user ${userId}, refund kredit: ${enqueueErr.message}`);
-        addCredit(userId, 1, 'Refund: queue submission failed', null);
+        logger.error(`Enqueue gagal untuk user ${userId}, refund ${creditsNeeded} kredit: ${enqueueErr.message}`);
+        addCredit(userId, creditsNeeded, 'Refund: queue submission failed', null);
 
         // Hapus file upload yang tidak jadi dipakai
         fs.unlink(req.file.path, () => {});
@@ -136,7 +140,8 @@ router.post(
         });
       }
 
-      logger.info(`Generate berhasil: user=${userId} jobId=${enqueueResult.jobId}`);
+      logger.info(`Generate berhasil: user=${userId} jobId=${enqueueResult.jobId} resolution=${resolution} creditsUsed=${creditsNeeded}`);
+
 
       return res.json({
         success: true,

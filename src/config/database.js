@@ -260,6 +260,7 @@ async function initDb() {
       comfyui_prompt_id   TEXT,
       output_filename     TEXT,
       credits_used        INTEGER NOT NULL DEFAULT 1,
+      resolution          TEXT NOT NULL DEFAULT '1mp',
       error_message       TEXT,
       created_at          TEXT NOT NULL,
       started_at          TEXT,
@@ -274,6 +275,13 @@ async function initDb() {
   } catch (_) {
     // Abaikan jika kolom sudah ada
   }
+
+  try {
+    dbWrapper.exec("ALTER TABLE jobs ADD COLUMN resolution TEXT DEFAULT '1mp';");
+  } catch (_) {
+    // Abaikan jika kolom sudah ada
+  }
+
 
 
   // Tabel: credit_logs

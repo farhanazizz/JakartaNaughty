@@ -83,12 +83,14 @@ function enqueueJob(userId, jobData) {
   const jobId = uuidv4();
   const now = new Date().toISOString();
   const refBoost = jobData.refBoost ?? 4.2;
+  const resolution = String(jobData.resolution || '1mp').toLowerCase() === '2mp' ? '2mp' : '1mp';
+  const creditsUsed = parseInt(jobData.creditsUsed) || (resolution === '2mp' ? 2 : 1);
 
   db.prepare(`
     INSERT INTO jobs (
       id, user_id, status, source_image_name, source_image_path,
-      positive_prompt, negative_prompt, seed, ref_boost, credits_used, created_at
-    ) VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?, 1, ?)
+      positive_prompt, negative_prompt, seed, ref_boost, resolution, credits_used, created_at
+    ) VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     jobId,
     userId,
@@ -98,8 +100,11 @@ function enqueueJob(userId, jobData) {
     jobData.negativePrompt || '',
     jobData.seed ?? -1,
     refBoost,
+    resolution,
+    creditsUsed,
     now
   );
+
 
 
   // Hitung posisi dalam antrian
@@ -223,8 +228,10 @@ async function processJob(job) {
         negativePrompt:  job.negative_prompt,
         seed:            job.seed,
         refBoost:        job.ref_boost || 4.2,
+        resolution:      job.resolution || '1mp',
         token:           currentGpu.token || '',
       });
+
 
       // 4. Simpan prompt_id dan seed aktual
       db.prepare(`

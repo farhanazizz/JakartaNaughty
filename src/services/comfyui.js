@@ -277,17 +277,21 @@ async function uploadImage(comfyUrl, filePath, token) {
  * @param {Object} apiWorkflow    - Workflow API format
  * @param {string} imageFilename  - Nama file gambar di ComfyUI
  * @param {string} positivePrompt - Prompt positif
+ * @param {string} positivePrompt - Prompt positif
  * @param {string} negativePrompt - Prompt negatif
  * @param {number} seed           - Seed (-1 = random)
  * @param {number} [refBoost=4.2] - Reference Boost (default: 4.2)
+ * @param {string} [resolution='1mp'] - Output resolution ('1mp' or '2mp')
  * @returns {{ workflow: Object, actualSeed: number }}
  */
-function modifyWorkflow(apiWorkflow, imageFilename, positivePrompt, negativePrompt, seed, refBoost = 4.2) {
+function modifyWorkflow(apiWorkflow, imageFilename, positivePrompt, negativePrompt, seed, refBoost = 4.2, resolution = '1mp') {
   const actualSeed = (seed === -1 || seed == null)
     ? Math.floor(Math.random() * 9999999999)
     : seed;
 
   const actualRefBoost = typeof refBoost === 'number' && refBoost >= 0 ? refBoost : 4.2;
+  const is2MP = String(resolution).toLowerCase() === '2mp';
+  const maxMp = is2MP ? 2 : 1;
   const nodes = apiWorkflow;
 
   // --- Node 231: PixaromaLoraLoader (LoRA Identity Edit v1.2) ---
@@ -349,14 +353,14 @@ function modifyWorkflow(apiWorkflow, imageFilename, positivePrompt, negativeProm
     });
   }
 
-  // --- Node 226: PixaromaLoadImageMini (Source image + 1024x1024 2MP) ---
+  // --- Node 226: PixaromaLoadImageMini (Source image + Resolution 1MP/2MP) ---
   if (nodes['226']) {
     if (!nodes['226'].inputs) nodes['226'].inputs = {};
     nodes['226'].inputs.image = imageFilename;
     nodes['226'].inputs.LoadImageMiniState = JSON.stringify({
       version: 1,
       mode: 'max_mp',
-      max_mp: 2,
+      max_mp: maxMp,
       longest_side: 1024,
       scale_factor: 1,
       fit_w: 1024,
@@ -378,7 +382,7 @@ function modifyWorkflow(apiWorkflow, imageFilename, positivePrompt, negativeProm
       resample: 'auto',
       allow_upscale: true,
     });
-    logger.info(`Node 226: Source image diset ke ${imageFilename} (1024x1024 / 2MP)`);
+    logger.info(`Node 226: Source image diset ke ${imageFilename} (Resolusi: ${is2MP ? '2MP (Ultra HD)' : '1MP (Standard)'} / max_mp: ${maxMp})`);
   }
 
   // --- Node 224: Krea2EditGroundedEncode (Positive prompt & Vision grounding) ---
@@ -416,7 +420,7 @@ function modifyWorkflow(apiWorkflow, imageFilename, positivePrompt, negativeProm
  * Proses:
  *  1. Load workflow dari GPU (fallback lokal)
  *  2. Upload gambar source ke ComfyUI
- *  3. Modifikasi workflow dengan LoRA, prompt, gambar, seed, dan ref_boost
+ *  3. Modifikasi workflow dengan LoRA, prompt, gambar, seed, ref_boost, dan resolution
  *  4. POST ke /prompt endpoint ComfyUI
  *  5. Return prompt_id untuk tracking
  *
@@ -427,12 +431,13 @@ function modifyWorkflow(apiWorkflow, imageFilename, positivePrompt, negativeProm
  * @param {string} jobParams.negativePrompt   - Prompt negatif
  * @param {number} [jobParams.seed=-1]        - Seed (default: random)
  * @param {number} [jobParams.refBoost=4.2]   - Reference Boost fidelity (default: 4.2)
+ * @param {string} [jobParams.resolution='1mp'] - Output resolution ('1mp' or '2mp')
  * @param {string} [jobParams.token='']       - Token auth Vast.ai (jupyter_token)
  *
  * @returns {Promise<{promptId: string, seed: number}>}
  * @throws {Error} Jika submit gagal
  */
-async function submitJob(comfyUrl, { sourceImagePath, positivePrompt, negativePrompt, seed = -1, refBoost = 4.2, token = '' }) {
+async function submitJob(comfyUrl, { sourceImagePath, positivePrompt, negativePrompt, seed = -1, refBoost = 4.2, resolution = '1mp', token = '' }) {
   // 1. Load workflow dalam API format (GPU atau lokal)
   logger.debug('Memuat workflow untuk GPU: ' + comfyUrl);
   const apiWorkflow = await loadWorkflowApiFormat(comfyUrl, token);
@@ -448,8 +453,10 @@ async function submitJob(comfyUrl, { sourceImagePath, positivePrompt, negativePr
     positivePrompt,
     negativePrompt,
     seed,
-    refBoost
+    refBoost,
+    resolution
   );
+
 
   // 4. Submit ke ComfyUI /prompt endpoint
   const payload = {
