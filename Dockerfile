@@ -23,8 +23,13 @@ COPY public/ ./public/
 # Buat folder data persisten, uploads, dan outputs
 RUN mkdir -p uploads outputs data && chown -R node:node /app
 
+# Persistent Volume Storage
+VOLUME ["/app/data"]
+ENV DB_PATH=/app/data/krea2.db
+
 # Gunakan non-root user 'node' untuk keamanan
 USER node
+
 
 # Expose port
 EXPOSE 3000
