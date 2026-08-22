@@ -97,10 +97,20 @@ router.post('/ping', async (req, res) => {
       queueCount,
       message: `Terkoneksi normal (${latencyMs}ms)`,
     });
+  } catch (err) {
+    return res.json({
+      success: false,
+      online: false,
+      message: `Koneksi gagal: ${err.message}`,
+    });
+  }
+});
+
 // ============================================================
 // POST /api/admin/gpu/:gpuId/mode — Ganti Mode GPU (Public / Test-Only / Disabled)
 // ============================================================
 router.post('/:gpuId/mode', async (req, res) => {
+
   try {
     const { gpuId } = req.params;
     const { isEnabled, mode, label } = req.body;
