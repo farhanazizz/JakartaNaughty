@@ -54,7 +54,7 @@ router.post(
       if (!req.file) {
         return res.status(400).json({
           success: false,
-          message: 'Gambar source wajib diupload.',
+          message: 'Source image is required.',
         });
       }
 
@@ -62,12 +62,12 @@ router.post(
       // Validasi: positive prompt wajib dan cukup panjang
       // -------------------------------------------------------
       const positivePrompt = (req.body.positive_prompt || '').trim();
-      if (!positivePrompt || positivePrompt.length < 10) {
+      if (!positivePrompt || positivePrompt.length < 5) {
         // Hapus file yang sudah diupload karena validasi gagal
         fs.unlink(req.file.path, () => {});
         return res.status(400).json({
           success: false,
-          message: 'Positive prompt wajib diisi dan minimal 10 karakter.',
+          message: 'Positive prompt is required and must be at least 5 characters.',
         });
       }
 
@@ -83,14 +83,14 @@ router.post(
 
       if (!user) {
         fs.unlink(req.file.path, () => {});
-        return res.status(403).json({ success: false, message: 'User tidak ditemukan.' });
+        return res.status(403).json({ success: false, message: 'User account not found.' });
       }
 
       if (user.credits < 1) {
         fs.unlink(req.file.path, () => {});
         return res.status(403).json({
           success: false,
-          message: 'Kredit kamu tidak cukup. Hubungi admin untuk mengisi kredit.',
+          message: 'Insufficient credits. Please contact admin for top-up.',
         });
       }
 
@@ -104,7 +104,7 @@ router.post(
         fs.unlink(req.file.path, () => {});
         return res.status(403).json({
           success: false,
-          message: deductResult.message || 'Gagal memotong kredit.',
+          message: deductResult.message || 'Failed to deduct credits.',
         });
       }
 
@@ -125,14 +125,14 @@ router.post(
 
         // Enqueue gagal — refund kredit agar user tidak rugi
         logger.error(`Enqueue gagal untuk user ${userId}, refund kredit: ${enqueueErr.message}`);
-        addCredit(userId, 1, 'Refund: gagal masuk antrian', null);
+        addCredit(userId, 1, 'Refund: queue submission failed', null);
 
         // Hapus file upload yang tidak jadi dipakai
         fs.unlink(req.file.path, () => {});
 
         return res.status(500).json({
           success: false,
-          message: enqueueErr.message || 'Gagal memasukkan job ke antrian.',
+          message: enqueueErr.message || 'Failed to queue job.',
         });
       }
 
@@ -143,7 +143,7 @@ router.post(
         data: {
           jobId:         enqueueResult.jobId,
           queuePosition: enqueueResult.queuePosition,
-          message:       `Job berhasil dimasukkan ke antrian. Posisi: ${enqueueResult.queuePosition}`,
+          message:       `Job queued successfully. Position: #${enqueueResult.queuePosition}`,
         },
       });
 
@@ -155,9 +155,10 @@ router.post(
 
       return res.status(500).json({
         success: false,
-        message: 'Terjadi kesalahan server.',
+        message: 'Internal server error.',
       });
     }
+
   }
 );
 

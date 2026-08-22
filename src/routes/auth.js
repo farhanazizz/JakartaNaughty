@@ -55,10 +55,10 @@ router.post('/login', loginLimiter, async (req, res) => {
 
     // Validasi input
     if (!identifier) {
-      return res.status(400).json({ success: false, message: 'Username atau email wajib diisi.' });
+      return res.status(400).json({ success: false, message: 'Username or email is required.' });
     }
     if (!password || password.length < 6) {
-      return res.status(400).json({ success: false, message: 'Password minimal 6 karakter.' });
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters.' });
     }
 
     const db = getDb();
@@ -71,9 +71,9 @@ router.post('/login', loginLimiter, async (req, res) => {
         username: identifier,
         event: 'LOGIN_FAIL_USER_NOT_FOUND',
         status: 'WARNING',
-        detail: 'Username tidak terdaftar',
+        detail: 'Username not registered',
       });
-      return res.status(401).json({ success: false, message: 'Username atau password salah.' });
+      return res.status(401).json({ success: false, message: 'Incorrect username or password.' });
     }
 
     // Cek apakah akun disuspend (is_active === 2)
@@ -82,11 +82,11 @@ router.post('/login', loginLimiter, async (req, res) => {
         username: identifier,
         event: 'LOGIN_FAIL_SUSPENDED',
         status: 'DANGER',
-        detail: 'Percobaan login dari akun yang ditangguhkan',
+        detail: 'Login attempt from suspended account',
       });
       return res.status(403).json({
         success: false,
-        message: 'Akun Anda telah DITANGGUHKAN (SUSPENDED) oleh administrator. Hubungi admin untuk informasi lebih lanjut.',
+        message: 'Your account has been SUSPENDED by the administrator. Please contact support.',
       });
     }
 
@@ -96,9 +96,9 @@ router.post('/login', loginLimiter, async (req, res) => {
         username: identifier,
         event: 'LOGIN_FAIL_INACTIVE',
         status: 'WARNING',
-        detail: 'Percobaan login dari akun nonaktif',
+        detail: 'Login attempt from inactive account',
       });
-      return res.status(403).json({ success: false, message: 'Akun kamu dinonaktifkan. Hubungi admin.' });
+      return res.status(403).json({ success: false, message: 'Your account is disabled. Please contact admin.' });
     }
 
     // Cek apakah akun sedang terkunci (brute force lockout)
@@ -108,11 +108,11 @@ router.post('/login', loginLimiter, async (req, res) => {
         username: identifier,
         event: 'LOGIN_FAIL_LOCKED',
         status: 'DANGER',
-        detail: `Akun terkunci, sisa ${remaining} menit`,
+        detail: `Account locked, ${remaining} mins remaining`,
       });
       return res.status(403).json({
         success: false,
-        message: `Akun terkunci karena terlalu banyak percobaan salah. Coba lagi dalam ${remaining} menit.`,
+        message: `Account is temporarily locked due to too many failed attempts. Try again in ${remaining} minutes.`,
       });
     }
 
@@ -125,7 +125,7 @@ router.post('/login', loginLimiter, async (req, res) => {
 
       if (newFailCount >= 5) {
         lockedUntil = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-        logger.warn(`Akun ${identifier} dikunci 15 menit (5x salah password)`);
+        logger.warn(`Account ${identifier} locked for 15 minutes (5 failed attempts)`);
       }
 
       db.prepare(`
@@ -138,21 +138,22 @@ router.post('/login', loginLimiter, async (req, res) => {
         username: identifier,
         event: lockedUntil ? 'ACCOUNT_LOCKED_BRUTEFORCE' : 'LOGIN_FAIL_WRONG_PASSWORD',
         status: 'WARNING',
-        detail: `Percobaan ke-${newFailCount}`,
+        detail: `Failed attempt #${newFailCount}`,
       });
 
       if (lockedUntil) {
         return res.status(403).json({
           success: false,
-          message: 'Password salah 5 kali. Akun terkunci selama 15 menit.',
+          message: 'Password incorrect 5 times. Account locked for 15 minutes.',
         });
       }
 
       return res.status(401).json({
         success: false,
-        message: `Password salah. Sisa kesempatan: ${5 - newFailCount}x.`,
+        message: `Incorrect password. ${5 - newFailCount} attempt(s) remaining.`,
       });
     }
+
 
     // Password benar — Reset login_fail_count & update last_login_at
     const now = new Date().toISOString();

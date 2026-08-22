@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <!--
   ============================================================
-  public/dashboard.html — Member Dashboard (Jakarta Naughty)
+  public/dashboard.html — Member Dashboard (Jakarta Naughty - English)
   ============================================================
 -->
-<html lang="id" class="dark">
+<html lang="en" class="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dashboard Member — Jakarta Naughty</title>
+  <title>Member Dashboard — Jakarta Naughty</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <script>
@@ -52,7 +52,7 @@
     }
   </style>
   <script>
-    // Zero-Flicker Guard
+    // Zero-Flicker Authentication Guard
     (async () => {
       try {
         const res = await fetch('/api/auth/me', { credentials: 'include' });
@@ -90,15 +90,15 @@
 
       <!-- Right User Nav -->
       <div class="flex items-center gap-3">
-        <!-- Saldo Badge -->
+        <!-- Balance Badge -->
         <div class="px-3.5 py-1.5 rounded-full bg-[#FF788D]/10 border border-[#FF788D]/30 flex items-center gap-2">
-          <span class="text-xs text-[#FFDADA]">Saldo:</span>
+          <span class="text-xs text-[#FFDADA]">Balance:</span>
           <span class="text-xs font-black text-brand" id="nav-credit-count">0</span>
-          <span class="text-[10px] text-slate-400">foto</span>
+          <span class="text-[10px] text-slate-400">credits</span>
         </div>
 
         <a href="/generate.html" class="hidden sm:flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#FF788D] to-[#e0536b] hover:opacity-90 text-white rounded-xl text-xs font-bold shadow-lg shadow-[#FF788D]/25 transition-all">
-          <span>✨</span> Generate Foto
+          <span>✨</span> Generate Photo
         </a>
 
         <button onclick="logoutUser()" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-red-400 rounded-xl transition-colors text-xs" title="Logout">
@@ -113,16 +113,27 @@
   <!-- Main Container -->
   <main class="flex-1 max-w-6xl w-full mx-auto p-4 md:p-8 space-y-6">
 
-    <!-- Studio Selector / Category Tabs (Multi-Models Ready) -->
+    <!-- 3-Day Temporary Storage Policy Alert Banner -->
+    <div class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3 text-xs text-amber-200">
+      <span class="text-base shrink-0">⏳</span>
+      <div>
+        <strong class="font-bold text-amber-300">Temporary Cloud Storage Notice:</strong>
+        <p class="mt-0.5 text-amber-200/90 leading-relaxed">
+          Generated photos are stored on high-speed cloud storage for <strong>3 days (72 hours)</strong>. Please download and save your generated artwork to your local device before expiration.
+        </p>
+      </div>
+    </div>
+
+    <!-- Studio Selector Tabs -->
     <div class="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-semibold">
       <div class="px-4 py-2 rounded-xl bg-brand/10 text-brand border border-brand/30 flex items-center gap-2 shrink-0">
-        <span>📸</span> Edit Photo Studio <span class="text-[9px] px-1.5 py-0.2 bg-brand text-white rounded-full font-bold">AKTIF</span>
+        <span>📸</span> Edit Photo Studio <span class="text-[9px] px-1.5 py-0.2 bg-brand text-white rounded-full font-bold">ACTIVE</span>
       </div>
       <div class="px-4 py-2 rounded-xl bg-slate-900/60 text-slate-500 border border-slate-800 flex items-center gap-2 shrink-0 opacity-60">
-        <span>🎬</span> Video Studio <span class="text-[9px] text-slate-500">(Segera)</span>
+        <span>🎬</span> Video Studio <span class="text-[9px] text-slate-500">(Coming Soon)</span>
       </div>
       <div class="px-4 py-2 rounded-xl bg-slate-900/60 text-slate-500 border border-slate-800 flex items-center gap-2 shrink-0 opacity-60">
-        <span>🎭</span> Face Swap <span class="text-[9px] text-slate-500">(Segera)</span>
+        <span>🎭</span> Face Swap <span class="text-[9px] text-slate-500">(Coming Soon)</span>
       </div>
     </div>
 
@@ -133,27 +144,27 @@
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
         <div>
           <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FF788D]/15 text-[#FFDADA] text-[11px] font-bold mb-3 border border-[#FF788D]/25">
-            Selamat Datang di Studio
+            Welcome to the Studio
           </span>
           <h2 class="text-2xl md:text-3xl font-extrabold text-white tracking-tight" id="user-greeting">
-            Halo, Member Jakarta Naughty
+            Hello, Jakarta Naughty Member
           </h2>
           <p class="text-xs text-slate-400 mt-1 max-w-lg leading-relaxed">
-            Gunakan kuota Anda untuk mengedit dan mengubah gaya foto menjadi estetis, memukau, dan berkualitas tinggi secara instan.
+            Use your credits to transform and stylize photos into stunning, photorealistic masterpieces in seconds.
           </p>
         </div>
 
         <!-- Balance Display -->
         <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-slate-900/80 p-5 rounded-2xl border border-slate-800">
           <div>
-            <div class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Sisa Kuota Foto</div>
+            <div class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Remaining Credits</div>
             <div class="text-3xl font-black text-brand mt-0.5 flex items-baseline gap-1">
               <span id="hero-credits-count">0</span>
-              <span class="text-xs text-slate-400 font-semibold">kredit</span>
+              <span class="text-xs text-slate-400 font-semibold">credits</span>
             </div>
           </div>
           <a href="/generate.html" class="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-[#FF788D] to-[#e0536b] hover:opacity-90 text-white rounded-xl text-xs font-bold shadow-lg shadow-[#FF788D]/25 transition-all text-center">
-            Mulai Edit Foto →
+            Start Generating →
           </a>
         </div>
       </div>
@@ -163,23 +174,23 @@
     <div class="glass-card rounded-2xl p-6">
       <div class="flex items-center justify-between mb-4">
         <h3 class="font-bold text-base text-white flex items-center gap-2">
-          <span>📜</span> Riwayat Generate Terakhir
+          <span>📜</span> Recent Generation History
         </h3>
-        <a href="/generate.html" class="text-xs text-brand hover:underline font-semibold">Buat Baru +</a>
+        <a href="/generate.html" class="text-xs text-brand hover:underline font-semibold">Generate New +</a>
       </div>
 
       <div class="overflow-x-auto">
         <table class="w-full text-left text-xs">
           <thead class="text-slate-400 border-b border-slate-800 uppercase text-[10px] tracking-wider">
             <tr>
-              <th class="py-3 px-3">Tanggal</th>
+              <th class="py-3 px-3">Date</th>
               <th class="py-3 px-3">Status</th>
-              <th class="py-3 px-3">Deskripsi Prompt</th>
-              <th class="py-3 px-3 text-right">Hasil</th>
+              <th class="py-3 px-3">Prompt Description</th>
+              <th class="py-3 px-3 text-right">Result</th>
             </tr>
           </thead>
           <tbody id="user-jobs-tbody" class="divide-y divide-slate-800/60">
-            <tr><td colspan="4" class="text-center py-8 text-slate-500">Memuat riwayat...</td></tr>
+            <tr><td colspan="4" class="text-center py-8 text-slate-500">Loading history...</td></tr>
           </tbody>
         </table>
       </div>
@@ -187,8 +198,75 @@
 
   </main>
 
+  <!-- Responsible AI Usage & Service Disclaimer Modal -->
+  <div id="terms-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md hidden">
+    <div class="glass-card max-w-lg w-full rounded-3xl p-6 sm:p-8 shadow-2xl border border-brand/30 relative text-left">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 rounded-xl bg-brand/20 border border-brand/40 flex items-center justify-center text-xl">
+          🛡️
+        </div>
+        <div>
+          <h3 class="text-lg font-extrabold text-white">Responsible AI & Service Disclaimer</h3>
+          <p class="text-[11px] text-[#FFDADA]">Please review our terms of use before proceeding</p>
+        </div>
+      </div>
+
+      <div class="space-y-3.5 text-xs text-slate-300 max-h-60 overflow-y-auto pr-1 leading-relaxed border-y border-slate-800 py-3.5 my-4">
+        <div>
+          <strong class="text-white block font-bold mb-0.5">1. Ethical & Lawful Usage:</strong>
+          You agree to use this AI photo generation tool strictly for lawful, creative, and consensual purposes. You must not upload or generate non-consensual imagery, deepfakes of individuals without explicit consent, explicit/illegal material, or content infringing upon third-party rights.
+        </div>
+        <div>
+          <strong class="text-white block font-bold mb-0.5">2. User Responsibility & Liability Disclaimer:</strong>
+          You are solely and legally responsible for all prompts, uploaded source media, and generated outputs produced under your account. Jakarta Naughty acts purely as a technological tool provider and disclaims all liability for user-generated content, misuse, or downstream distribution.
+        </div>
+        <div>
+          <strong class="text-white block font-bold mb-0.5">3. 3-Day Temporary Storage Policy:</strong>
+          Generated artworks are stored temporarily for <strong>3 days (72 hours)</strong>. Please download and back up your generated images directly to your personal device.
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 mb-5">
+        <input type="checkbox" id="agree-check" class="w-4 h-4 rounded border-slate-700 bg-slate-900 text-brand focus:ring-brand accent-brand cursor-pointer" />
+        <label for="agree-check" class="text-xs text-slate-300 cursor-pointer font-medium">
+          I understand, acknowledge, and agree to these terms of service.
+        </label>
+      </div>
+
+      <button
+        id="btn-accept-terms"
+        disabled
+        onclick="acceptTerms()"
+        class="w-full py-3 bg-gradient-to-r from-[#FF788D] to-[#e0536b] disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all text-xs shadow-lg shadow-[#FF788D]/25 text-center"
+      >
+        Accept & Proceed to Studio
+      </button>
+    </div>
+  </div>
+
   <script>
     let dashboardPollingInterval = null;
+
+    // Check & Show Responsible AI Disclaimer Modal
+    function checkTermsModal() {
+      const accepted = localStorage.getItem('jn_ai_terms_accepted');
+      if (!accepted) {
+        const modal = document.getElementById('terms-modal');
+        modal.classList.remove('hidden');
+
+        const check = document.getElementById('agree-check');
+        const btn = document.getElementById('btn-accept-terms');
+
+        check.addEventListener('change', () => {
+          btn.disabled = !check.checked;
+        });
+      }
+    }
+
+    function acceptTerms() {
+      localStorage.setItem('jn_ai_terms_accepted', 'true');
+      document.getElementById('terms-modal').classList.add('hidden');
+    }
 
     async function loadDashboard() {
       try {
@@ -213,14 +291,14 @@
             <tr>
               <td colspan="4" class="text-center py-10 text-slate-500">
                 <div class="text-2xl mb-1">📸</div>
-                <div>Belum ada riwayat generate. Silakan klik tombol <strong>Mulai Edit Foto</strong> di atas!</div>
+                <div>No generation history yet. Click <strong>Start Generating</strong> above to create your first photo!</div>
               </td>
             </tr>
           `;
           return;
         }
 
-        // Cek apakah ada job yang masih pending atau processing
+        // Check if any jobs are currently queued or processing
         const hasActiveJobs = recentJobs.some(j => j.status === 'pending' || j.status === 'processing');
         if (hasActiveJobs) {
           if (!dashboardPollingInterval) {
@@ -235,38 +313,46 @@
 
         tbody.innerHTML = recentJobs.map(j => {
           const statusBadge = j.status === 'done'
-            ? '<span class="px-2.5 py-0.5 rounded-full emerald-badge text-[10px] font-bold">SELESAI</span>'
+            ? '<span class="px-2.5 py-0.5 rounded-full emerald-badge text-[10px] font-bold">COMPLETED</span>'
             : j.status === 'processing'
-            ? '<span class="px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 text-[10px] font-bold animate-pulse">PROSES</span>'
+            ? '<span class="px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 text-[10px] font-bold animate-pulse">PROCESSING</span>'
             : j.status === 'pending'
-            ? '<span class="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-bold">ANTRI</span>'
-            : '<span class="px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-400 text-[10px] font-bold">GAGAL</span>';
+            ? '<span class="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-bold">QUEUED</span>'
+            : j.status === 'expired'
+            ? '<span class="px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 text-[10px] font-bold">EXPIRED</span>'
+            : '<span class="px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-400 text-[10px] font-bold">FAILED</span>';
+
+          const imageHref = j.output_filename?.startsWith('http')
+            ? j.output_filename
+            : `/api/jobs/${j.id}/image`;
 
           return `
             <tr class="hover:bg-slate-800/30 transition-colors">
-              <td class="py-3.5 px-3 text-slate-400">${new Date(j.created_at).toLocaleDateString('id-ID')}</td>
+              <td class="py-3.5 px-3 text-slate-400">${new Date(j.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
               <td class="py-3.5 px-3">${statusBadge}</td>
               <td class="py-3.5 px-3 text-slate-300 max-w-sm truncate" title="${escapeHtml(j.positive_prompt)}">
                 ${escapeHtml(j.positive_prompt)}
               </td>
               <td class="py-3.5 px-3 text-right">
                 ${j.status === 'done'
-                  ? `<a href="/api/jobs/${j.id}/image" target="_blank" class="px-3 py-1 bg-brand/10 hover:bg-brand/20 text-brand rounded-lg font-bold border border-brand/30">Download</a>`
+                  ? `<a href="${imageHref}" target="_blank" class="px-3 py-1 bg-brand/10 hover:bg-brand/20 text-brand rounded-lg font-bold border border-brand/30">Download</a>`
+                  : j.status === 'expired'
+                  ? '<span class="text-slate-500 text-[11px]">Cleaned Up (3d)</span>'
                   : j.status === 'failed'
-                  ? '<span class="text-red-400 text-[11px]">Kredit Dikembalikan</span>'
-                  : '<span class="text-slate-500 text-[11px]">Memproses...</span>'}
+                  ? '<span class="text-red-400 text-[11px]">Credit Refunded</span>'
+                  : '<span class="text-slate-500 text-[11px]">Processing...</span>'}
               </td>
             </tr>
           `;
         }).join('');
 
       } catch (err) {
-        console.error('Error load dashboard:', err);
+        console.error('Error loading dashboard:', err);
       }
     }
 
     async function logoutUser() {
-      if (!confirm('Apakah Anda yakin ingin logout?')) return;
+      if (!confirm('Are you sure you want to sign out?')) return;
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
       window.location.href = '/login.html';
     }
@@ -278,7 +364,8 @@
       return d.innerHTML;
     }
 
-    // Inisialisasi & Pasang Event Listener Realtime
+    // Initialization & Realtime Listeners
+    checkTermsModal();
     loadDashboard();
     window.addEventListener('pageshow', () => loadDashboard());
     window.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') loadDashboard(); });
@@ -286,4 +373,3 @@
   </script>
 </body>
 </html>
-

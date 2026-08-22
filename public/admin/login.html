@@ -1,12 +1,10 @@
 <!DOCTYPE html>
 <!--
   ============================================================
-  public/admin/login.html — Jakarta Naughty Admin Gate (Stealth Mode)
-  ============================================================
-  Hanya bisa dibuka jika ada valid Gate Key atau sudah terautentikasi.
+  public/admin/login.html — Jakarta Naughty Admin Gate (English)
   ============================================================
 -->
-<html lang="id" class="dark">
+<html lang="en" class="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -54,7 +52,7 @@
 
   <div class="relative w-full max-w-sm text-center z-10">
 
-    <!-- Badge Admin -->
+    <!-- Admin Badge -->
     <div class="inline-flex items-center gap-2 bg-[#FF788D]/10 border border-[#FF788D]/30 text-[#FFDADA] text-xs font-bold px-4 py-1.5 rounded-full mb-6 shadow-lg shadow-[#FF788D]/10">
       <svg class="w-3.5 h-3.5 text-brand" fill="currentColor" viewBox="0 0 20 20">
         <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
@@ -68,10 +66,10 @@
         JN
       </div>
       <h1 class="text-2xl font-black text-white tracking-tight">Jakarta Naughty</h1>
-      <p class="text-[#FFDADA] text-xs font-medium mt-1">Control Panel Administrator</p>
+      <p class="text-[#FFDADA] text-xs font-medium mt-1">Administrator Control Panel</p>
     </div>
 
-    <!-- Card Login -->
+    <!-- Login Card -->
     <div class="glass-card rounded-3xl p-7 shadow-2xl">
 
       <!-- Error Message -->
@@ -79,7 +77,7 @@
         <p id="error-msg" class="text-red-300 text-xs font-medium"></p>
       </div>
 
-      <!-- Form Login Admin (Username & Password) -->
+      <!-- Admin Login Form -->
       <form id="admin-login-form" class="space-y-4 text-left mb-6">
         <div>
           <label for="admin-username-input" class="block text-xs font-bold text-slate-300 mb-1.5">Username</label>
@@ -88,7 +86,7 @@
             id="admin-username-input"
             required
             autocomplete="username"
-            placeholder="username"
+            placeholder="admin username"
             class="w-full px-3.5 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand text-xs font-medium"
           />
         </div>
@@ -99,7 +97,7 @@
             id="admin-pass-input"
             required
             autocomplete="current-password"
-            placeholder="password"
+            placeholder="••••••••"
             class="w-full px-3.5 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand text-xs font-medium"
           />
         </div>
@@ -108,28 +106,28 @@
           id="btn-admin-login"
           class="w-full py-3 bg-gradient-to-r from-[#FF788D] to-[#e0536b] hover:opacity-90 text-white font-bold rounded-xl transition-all text-xs shadow-lg shadow-[#FF788D]/25 mt-2"
         >
-          <span id="btn-admin-text">Masuk ke Admin Panel</span>
+          <span id="btn-admin-text">Sign In to Admin Panel</span>
         </button>
       </form>
 
-      <!-- Info Keamanan -->
+      <!-- Security Notice -->
       <div class="pt-4 border-t border-slate-800">
         <p class="text-slate-500 text-[11px] leading-relaxed">
-          🔒 Gerbang dilindungi oleh <strong class="text-slate-400">Stealth Shield</strong>. IP & User-Agent Anda sedang dimonitor.
+          🔒 Protected by <strong class="text-slate-400">Stealth Shield</strong>. Access attempts and IP addresses are monitored.
         </p>
       </div>
     </div>
 
-    <!-- Link ke Halaman Member -->
+    <!-- Link to Member Login -->
     <p class="mt-6 text-slate-500 text-xs">
-      Bukan admin?
-      <a href="/login.html" class="text-brand hover:text-brand-light transition-colors font-semibold">Buka Halaman Member →</a>
+      Not an admin?
+      <a href="/login.html" class="text-brand hover:text-brand-light transition-colors font-semibold">Open Member Login →</a>
     </p>
 
   </div>
 
   <script>
-    // Cek apakah sudah login sebagai admin
+    // Check if already authenticated as admin
     (async () => {
       try {
         const res = await fetch('/api/auth/me', { credentials: 'include' });
@@ -159,7 +157,7 @@
       const password = passInput.value;
 
       btnSubmit.disabled = true;
-      btnText.textContent = 'Memverifikasi...';
+      btnText.textContent = 'Verifying credentials...';
 
       try {
         const res = await fetch('/api/auth/login', {
@@ -176,18 +174,18 @@
             window.location.href = '/admin/dashboard.html';
           } else {
             errorBox.classList.remove('hidden');
-            errorMsg.textContent = '⚠️ Akun ini bukan administrator.';
+            errorMsg.textContent = '⚠️ This account does not have administrator privileges.';
           }
         } else {
           errorBox.classList.remove('hidden');
-          errorMsg.textContent = data.message || 'Login gagal.';
+          errorMsg.textContent = data.message || 'Authentication failed.';
         }
       } catch (err) {
         errorBox.classList.remove('hidden');
-        errorMsg.textContent = 'Gagal terhubung ke server.';
+        errorMsg.textContent = 'Server connection failure.';
       } finally {
         btnSubmit.disabled = false;
-        btnText.textContent = 'Masuk ke Admin Panel';
+        btnText.textContent = 'Sign In to Admin Panel';
       }
     });
   </script>

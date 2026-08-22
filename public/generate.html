@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <!--
   ============================================================
-  public/generate.html — Jakarta Naughty Edit Photo Studio
+  public/generate.html — Jakarta Naughty Edit Photo Studio (English)
   ============================================================
 -->
-<html lang="id" class="dark">
+<html lang="en" class="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -56,7 +56,7 @@
     }
   </style>
   <script>
-    // Zero-Flicker Guard
+    // Zero-Flicker Authentication Guard
     (async () => {
       try {
         const res = await fetch('/api/auth/me', { credentials: 'include' });
@@ -101,9 +101,9 @@
           ← Dashboard
         </a>
         <div class="px-3.5 py-1.5 rounded-full bg-[#FF788D]/10 border border-[#FF788D]/30 flex items-center gap-2">
-          <span class="text-xs text-[#FFDADA]">Saldo:</span>
+          <span class="text-xs text-[#FFDADA]">Balance:</span>
           <span class="text-xs font-black text-brand" id="user-credits-display">0</span>
-          <span class="text-[10px] text-slate-400">foto</span>
+          <span class="text-[10px] text-slate-400">credits</span>
         </div>
       </div>
     </div>
@@ -111,11 +111,23 @@
 
   <!-- Studio Main Content -->
   <main class="flex-1 max-w-6xl w-full mx-auto p-4 md:p-8">
+
+    <!-- 3-Day Temporary Storage Policy Alert Banner -->
+    <div class="mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3 text-xs text-amber-200">
+      <span class="text-base shrink-0">⏳</span>
+      <div>
+        <strong class="font-bold text-amber-300">Temporary Cloud Storage Notice:</strong>
+        <p class="mt-0.5 text-amber-200/90 leading-relaxed">
+          Generated artworks are stored on high-speed cloud storage for <strong>3 days (72 hours)</strong>. Please download and save your images directly to your device.
+        </p>
+      </div>
+    </div>
+
     <div class="mb-6">
       <h1 class="text-2xl md:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2.5">
         <span>📸</span> Edit Photo Studio
       </h1>
-      <p class="text-xs text-slate-400 mt-1">Upload foto asli, berikan arahan gaya/kostum/suasana, dan biarkan AI studio menyempurnakannya.</p>
+      <p class="text-xs text-slate-400 mt-1">Upload a source photo, describe your desired style, outfit, or ambiance, and let the AI studio refine it.</p>
     </div>
 
     <!-- 2 Column Workspace Grid -->
@@ -127,7 +139,7 @@
 
           <!-- Upload Dropzone -->
           <div class="mb-5">
-            <label class="block text-xs font-bold text-slate-300 mb-2">1. Upload Foto Asli (Source Image)</label>
+            <label class="block text-xs font-bold text-slate-300 mb-2">1. Upload Source Image</label>
             <div id="drop-zone" class="drop-zone rounded-2xl p-6 text-center cursor-pointer bg-slate-900/60 relative overflow-hidden group">
               <input type="file" id="file-input" accept="image/jpeg,image/png" class="hidden" />
 
@@ -135,15 +147,15 @@
                 <div class="w-12 h-12 rounded-2xl bg-brand/10 text-brand flex items-center justify-center mx-auto text-xl group-hover:scale-110 transition-transform">
                   📁
                 </div>
-                <div class="font-bold text-xs text-white">Klik atau Tarik Foto ke Sini</div>
-                <div class="text-[11px] text-slate-500">Mendukung format JPG / PNG (Maks. 10MB)</div>
+                <div class="font-bold text-xs text-white">Click or Drag & Drop Image Here</div>
+                <div class="text-[11px] text-slate-500">Supports JPG / PNG (Max. 10MB)</div>
               </div>
 
               <!-- Preview Image View -->
               <div id="upload-preview-view" class="hidden relative">
-                <img id="preview-image" class="max-h-64 mx-auto rounded-xl shadow-lg object-contain border border-slate-700" />
+                <img id="preview-image" class="max-h-64 mx-auto rounded-xl shadow-lg object-contain border border-slate-700" alt="Preview" />
                 <button type="button" onclick="clearSelectedImage(event)" class="absolute top-2 right-2 p-1.5 bg-red-600/80 hover:bg-red-600 text-white rounded-lg text-xs font-bold shadow transition-colors">
-                  ✕ Ganti Foto
+                  ✕ Replace Image
                 </button>
               </div>
             </div>
@@ -152,29 +164,28 @@
           <!-- Prompt Input -->
           <div class="mb-5">
             <div class="flex items-center justify-between mb-2">
-              <label for="prompt-input" class="block text-xs font-bold text-slate-300">2. Deskripsi Pengeditan (Prompt)</label>
-              <span class="text-[10px] text-slate-500">Jelaskan perubahan yang diinginkan</span>
+              <label for="prompt-input" class="block text-xs font-bold text-slate-300">2. Editing Description (Prompt)</label>
+              <span class="text-[10px] text-slate-500">Describe the changes or atmosphere you want</span>
             </div>
             <textarea
               id="prompt-input"
               rows="4"
-              placeholder="Contoh: Ubah gaya pencahayaan menjadi cinematic glamour studio lighting, rambut ikal terurai natural, gaun satin merah elegan, latar belakang mewah..."
+              placeholder="e.g., Portrait photo of elegant woman in modern luxury villa, warm cinematic lighting, natural wavy hair, beautiful satin red dress, photorealistic 8k..."
               class="w-full px-4 py-3 bg-slate-900/90 border border-slate-700 rounded-2xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand leading-relaxed"
             ></textarea>
           </div>
 
-
           <!-- Advanced Settings (Collapsible) -->
           <div class="mb-5 border-t border-slate-800/80 pt-3">
             <button type="button" onclick="toggleAdvancedSettings()" class="text-xs text-[#FFDADA] hover:text-brand font-semibold flex items-center gap-1.5 transition-colors">
-              <span id="advanced-arrow">▶</span> Pengaturan Lanjutan (Fidelity Kemiripan, Negative Prompt, Seed)
+              <span id="advanced-arrow">▶</span> Advanced Parameters (Identity Fidelity, Negative Prompt, Seed)
             </button>
             <div id="advanced-settings-box" class="hidden mt-3 space-y-3.5 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
               <!-- Ref Boost Slider -->
               <div>
                 <div class="flex items-center justify-between mb-1.5">
                   <label for="ref-boost-input" class="block text-xs font-semibold text-slate-300">
-                    Tingkat Kemiripan Objek / Wajah (Reference Boost)
+                    Identity Fidelity / Reference Boost
                   </label>
                   <span class="text-xs font-bold text-brand font-mono" id="ref-boost-display">4.2</span>
                 </div>
@@ -189,26 +200,26 @@
                   class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-[#FF788D]"
                 />
                 <div class="flex justify-between text-[10px] text-slate-500 mt-1">
-                  <span>1.0 (Lebih Bebas)</span>
-                  <span class="text-[#FFDADA] font-semibold">4.2 (Default Rekomendasi)</span>
-                  <span>8.0 (Sangat Mirip)</span>
+                  <span>1.0 (Creative Freedom)</span>
+                  <span class="text-[#FFDADA] font-semibold">4.2 (Recommended Default)</span>
+                  <span>8.0 (Strict Resemblance)</span>
                 </div>
               </div>
 
               <!-- Negative Prompt -->
               <div>
-                <label for="negative-prompt-input" class="block text-xs font-semibold text-slate-300 mb-1">Negative Prompt (Hindari dalam Foto)</label>
+                <label for="negative-prompt-input" class="block text-xs font-semibold text-slate-300 mb-1">Negative Prompt (Elements to Avoid)</label>
                 <input
                   type="text"
                   id="negative-prompt-input"
-                  placeholder="Contoh: blurry, bad quality, distorted, extra limbs, ugly"
+                  placeholder="e.g., blurry, low quality, distorted anatomy, extra limbs, bad lighting"
                   class="w-full px-3.5 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand"
                 />
               </div>
 
               <!-- Seed -->
               <div>
-                <label for="seed-input" class="block text-xs font-semibold text-slate-300 mb-1">Seed (Opsional, -1 untuk Acak)</label>
+                <label for="seed-input" class="block text-xs font-semibold text-slate-300 mb-1">Seed (Optional, -1 for Random)</label>
                 <input
                   type="number"
                   id="seed-input"
@@ -220,7 +231,6 @@
             </div>
           </div>
 
-
           <!-- Submit Button -->
           <button
             type="button"
@@ -228,7 +238,7 @@
             onclick="startGenerate()"
             class="w-full py-3.5 bg-gradient-to-r from-[#FF788D] to-[#e0536b] hover:opacity-95 text-white font-extrabold rounded-2xl transition-all shadow-xl shadow-[#FF788D]/25 flex items-center justify-center gap-2.5 text-sm"
           >
-            <span id="btn-generate-text">✨ Generate Foto Sekarang (1 Kredit)</span>
+            <span id="btn-generate-text">✨ Generate Artwork Now (1 Credit)</span>
             <svg id="btn-generate-spinner" class="hidden w-4 h-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
@@ -236,28 +246,27 @@
           </button>
 
           <p class="text-[11px] text-slate-500 text-center mt-3">
-            Setiap proses generate akan menggunakan 1 kredit dari saldo akun Anda. Jika proses gagal, kredit Anda akan otomatis dikembalikan.
+            Each generation uses 1 credit from your account balance. In case of any technical failure, your credit is refunded automatically.
           </p>
 
         </div>
       </div>
 
       <!-- RIGHT: Result & Status Panel (5 Cols) -->
-
       <div class="lg:col-span-5 space-y-5">
         <div class="glass-card rounded-3xl p-6 shadow-2xl min-h-[420px] flex flex-col justify-between">
 
           <div>
             <h3 class="font-bold text-sm text-white mb-3 flex items-center justify-between">
-              <span>🖼️ Hasil Studio</span>
+              <span>🖼️ Studio Output</span>
               <span id="job-status-badge" class="hidden px-2.5 py-0.5 rounded-full text-[10px] font-bold"></span>
             </h3>
 
             <!-- Placeholder State -->
             <div id="result-placeholder" class="border border-slate-800 rounded-2xl p-10 text-center bg-slate-900/40 my-6">
               <div class="text-4xl mb-3">🎨</div>
-              <div class="font-bold text-xs text-slate-300">Hasil Foto Akan Muncul di Sini</div>
-              <div class="text-[11px] text-slate-500 mt-1">Upload foto dan klik Generate untuk memulai rendering studio.</div>
+              <div class="font-bold text-xs text-slate-300">Generated Photo Will Appear Here</div>
+              <div class="text-[11px] text-slate-500 mt-1">Upload a photo and click Generate to start studio rendering.</div>
             </div>
 
             <!-- Loading Processing State -->
@@ -266,15 +275,15 @@
                 ⚙️
               </div>
               <div>
-                <div class="font-bold text-sm text-white" id="processing-title">Sedang Menghubungi GPU Studio...</div>
-                <div class="text-xs text-brand font-semibold mt-1" id="processing-desc">Harap tunggu sebentar</div>
+                <div class="font-bold text-sm text-white" id="processing-title">Connecting to Studio GPUs...</div>
+                <div class="text-xs text-brand font-semibold mt-1" id="processing-desc">Please hold on for a moment</div>
               </div>
             </div>
 
             <!-- Completed Result State -->
             <div id="result-completed" class="hidden my-4 space-y-4">
               <div class="rounded-2xl overflow-hidden border border-slate-700 shadow-2xl relative group bg-black">
-                <img id="result-image" class="w-full object-contain max-h-[380px] mx-auto" />
+                <img id="result-image" class="w-full object-contain max-h-[380px] mx-auto" alt="Studio Output" />
               </div>
             </div>
           </div>
@@ -288,7 +297,7 @@
               download="jakarta_naughty_result.png"
               class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 border border-slate-700 transition-colors shadow"
             >
-              📥 Download Foto Resolusi Tinggi
+              📥 Download High-Resolution Photo
             </a>
           </div>
 
@@ -297,6 +306,52 @@
 
     </div>
   </main>
+
+  <!-- Responsible AI Usage & Service Disclaimer Modal -->
+  <div id="terms-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md hidden">
+    <div class="glass-card max-w-lg w-full rounded-3xl p-6 sm:p-8 shadow-2xl border border-brand/30 relative text-left">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 rounded-xl bg-brand/20 border border-brand/40 flex items-center justify-center text-xl">
+          🛡️
+        </div>
+        <div>
+          <h3 class="text-lg font-extrabold text-white">Responsible AI & Service Disclaimer</h3>
+          <p class="text-[11px] text-[#FFDADA]">Please review our terms of use before proceeding</p>
+        </div>
+      </div>
+
+      <div class="space-y-3.5 text-xs text-slate-300 max-h-60 overflow-y-auto pr-1 leading-relaxed border-y border-slate-800 py-3.5 my-4">
+        <div>
+          <strong class="text-white block font-bold mb-0.5">1. Ethical & Lawful Usage:</strong>
+          You agree to use this AI photo generation tool strictly for lawful, creative, and consensual purposes. You must not upload or generate non-consensual imagery, deepfakes of individuals without explicit consent, explicit/illegal material, or content infringing upon third-party rights.
+        </div>
+        <div>
+          <strong class="text-white block font-bold mb-0.5">2. User Responsibility & Liability Disclaimer:</strong>
+          You are solely and legally responsible for all prompts, uploaded source media, and generated outputs produced under your account. Jakarta Naughty acts purely as a technological tool provider and disclaims all liability for user-generated content, misuse, or downstream distribution.
+        </div>
+        <div>
+          <strong class="text-white block font-bold mb-0.5">3. 3-Day Temporary Storage Policy:</strong>
+          Generated artworks are stored temporarily for <strong>3 days (72 hours)</strong>. Please download and back up your generated images directly to your personal device.
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 mb-5">
+        <input type="checkbox" id="agree-check" class="w-4 h-4 rounded border-slate-700 bg-slate-900 text-brand focus:ring-brand accent-brand cursor-pointer" />
+        <label for="agree-check" class="text-xs text-slate-300 cursor-pointer font-medium">
+          I understand, acknowledge, and agree to these terms of service.
+        </label>
+      </div>
+
+      <button
+        id="btn-accept-terms"
+        disabled
+        onclick="acceptTerms()"
+        class="w-full py-3 bg-gradient-to-r from-[#FF788D] to-[#e0536b] disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all text-xs shadow-lg shadow-[#FF788D]/25 text-center"
+      >
+        Accept & Proceed to Studio
+      </button>
+    </div>
+  </div>
 
   <script>
     let userCredits = 0;
@@ -322,9 +377,28 @@
       }, 4000);
     }
 
-    // -------------------------------------------------------
-    // Sync User Credits secara Realtime (Anti-Cache & BFCache safe)
-    // -------------------------------------------------------
+    // Check & Show Responsible AI Disclaimer Modal
+    function checkTermsModal() {
+      const accepted = localStorage.getItem('jn_ai_terms_accepted');
+      if (!accepted) {
+        const modal = document.getElementById('terms-modal');
+        modal.classList.remove('hidden');
+
+        const check = document.getElementById('agree-check');
+        const btn = document.getElementById('btn-accept-terms');
+
+        check.addEventListener('change', () => {
+          btn.disabled = !check.checked;
+        });
+      }
+    }
+
+    function acceptTerms() {
+      localStorage.setItem('jn_ai_terms_accepted', 'true');
+      document.getElementById('terms-modal').classList.add('hidden');
+    }
+
+    // Sync User Credits
     async function syncUserCredits() {
       try {
         const res = await fetch('/api/auth/me?t=' + Date.now(), {
@@ -340,7 +414,8 @@
       } catch (_) {}
     }
 
-    // Inisialisasi & Pasang Event Listener Realtime
+    // Initialization & Realtime Listeners
+    checkTermsModal();
     syncUserCredits();
     window.addEventListener('pageshow', () => syncUserCredits());
     window.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncUserCredits(); });
@@ -366,11 +441,11 @@
 
     function handleFileSelect(file) {
       if (!['image/jpeg', 'image/png'].includes(file.type)) {
-        showToast('Hanya file JPEG atau PNG yang didukung.', 'error');
+        showToast('Only JPEG and PNG file formats are supported.', 'error');
         return;
       }
       if (file.size > 10 * 1024 * 1024) {
-        showToast('Ukuran file maksimal 10MB.', 'error');
+        showToast('Maximum file size is 10MB.', 'error');
         return;
       }
       selectedFile = file;
@@ -408,16 +483,16 @@
     // Start Generation
     async function startGenerate() {
       if (!selectedFile) {
-        showToast('Silakan upload foto terlebih dahulu.', 'error');
+        showToast('Please upload a source photo first.', 'error');
         return;
       }
       const prompt = document.getElementById('prompt-input').value.trim();
       if (!prompt || prompt.length < 5) {
-        showToast('Deskripsi prompt minimal 5 karakter.', 'error');
+        showToast('Prompt description must be at least 5 characters.', 'error');
         return;
       }
       if (userCredits < 1) {
-        showToast('Saldo kredit Anda habis. Silakan hubungi admin untuk top-up.', 'error');
+        showToast('Your credit balance is empty. Please contact admin for top-up.', 'error');
         return;
       }
 
@@ -426,7 +501,7 @@
       const btnSpinner = document.getElementById('btn-generate-spinner');
 
       btn.disabled = true;
-      btnText.textContent = 'Mengirim ke Studio...';
+      btnText.textContent = 'Submitting to Studio...';
       btnSpinner.classList.remove('hidden');
 
       // Update Result UI
@@ -434,7 +509,7 @@
       document.getElementById('result-completed').classList.add('hidden');
       document.getElementById('result-action-box').classList.add('hidden');
       document.getElementById('result-processing').classList.remove('hidden');
-      document.getElementById('processing-title').textContent = 'Memulai Antrian Studio...';
+      document.getElementById('processing-title').textContent = 'Queuing Job in Studio...';
 
       const formData = new FormData();
       formData.append('source_image', selectedFile);
@@ -465,19 +540,19 @@
         if (res.ok && d.success) {
           userCredits = Math.max(0, userCredits - 1);
           document.getElementById('user-credits-display').textContent = userCredits;
-          showToast('Job berhasil masuk antrian studio!', 'success');
+          showToast('Job queued in studio successfully!', 'success');
 
           // Start polling job status
           pollJobStatus(d.data.jobId);
         } else {
-          showToast(d.message || 'Gagal memulai generate.', 'error');
+          showToast(d.message || 'Failed to start generation.', 'error');
           resetGenerateButton();
           document.getElementById('result-processing').classList.add('hidden');
           document.getElementById('result-placeholder').classList.remove('hidden');
           syncUserCredits();
         }
       } catch (err) {
-        showToast('Gagal terhubung ke server: ' + err.message, 'error');
+        showToast('Server connection error: ' + err.message, 'error');
         resetGenerateButton();
         syncUserCredits();
       }
@@ -497,30 +572,30 @@
           const job = d.data;
 
           if (job.status === 'processing') {
-            document.getElementById('processing-title').textContent = 'GPU Studio Sedang Merender Foto...';
-            document.getElementById('processing-desc').textContent = 'Proses AI sedang berlangsung...';
+            document.getElementById('processing-title').textContent = 'GPU Studio is Rendering Image...';
+            document.getElementById('processing-desc').textContent = 'AI diffusion process in progress...';
           } else if (job.status === 'pending') {
-            document.getElementById('processing-title').textContent = `Menunggu Antrian Studio (Posisi ke-${job.queuePosition || 1})`;
-            document.getElementById('processing-desc').textContent = 'GPU akan segera memproses foto Anda.';
+            document.getElementById('processing-title').textContent = `Waiting in Studio Queue (Position #${job.queuePosition || 1})`;
+            document.getElementById('processing-desc').textContent = 'GPU cluster will process your photo shortly.';
           } else if (job.status === 'done') {
             clearInterval(pollingInterval);
             resetGenerateButton();
             document.getElementById('result-processing').classList.add('hidden');
 
-            const imgUrl = `/api/jobs/${jobId}/image?t=${Date.now()}`;
-            document.getElementById('result-image').src = imgUrl;
-            document.getElementById('btn-download-result').href = imgUrl;
+            const finalUrl = job.outputUrl || `/api/jobs/${jobId}/image?t=${Date.now()}`;
+            document.getElementById('result-image').src = finalUrl;
+            document.getElementById('btn-download-result').href = finalUrl;
             document.getElementById('result-completed').classList.remove('hidden');
             document.getElementById('result-action-box').classList.remove('hidden');
 
-            showToast('Foto selesai dirender!', 'success');
+            showToast('Artwork generated successfully!', 'success');
             syncUserCredits();
           } else if (job.status === 'failed') {
             clearInterval(pollingInterval);
             resetGenerateButton();
             document.getElementById('result-processing').classList.add('hidden');
             document.getElementById('result-placeholder').classList.remove('hidden');
-            showToast('Generate gagal. Kredit Anda telah dikembalikan secara otomatis.', 'error');
+            showToast('Generation failed. Your credit has been refunded automatically.', 'error');
             syncUserCredits();
           }
         } catch (e) {
@@ -534,10 +609,9 @@
       const btnText = document.getElementById('btn-generate-text');
       const btnSpinner = document.getElementById('btn-generate-spinner');
       btn.disabled = false;
-      btnText.textContent = '✨ Generate Foto Sekarang (1 Kredit)';
+      btnText.textContent = '✨ Generate Artwork Now (1 Credit)';
       btnSpinner.classList.add('hidden');
     }
-
   </script>
 </body>
 </html>

@@ -115,6 +115,22 @@ const config = {
     uploadDir: process.env.UPLOAD_DIR || 'uploads',
     outputDir: process.env.OUTPUT_DIR || 'outputs',
   },
+
+  // Cloudflare R2 Storage (S3-Compatible)
+  r2: {
+    accountId: process.env.R2_ACCOUNT_ID || '',
+    accessKeyId: process.env.R2_ACCESS_KEY_ID || '',
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || '',
+    bucketName: process.env.R2_BUCKET_NAME || 'jakartanaughty',
+    publicDomain: (process.env.R2_PUBLIC_DOMAIN || '').replace(/\/+$/, ''),
+    isConfigured: Boolean(
+      process.env.R2_ACCOUNT_ID &&
+      process.env.R2_ACCESS_KEY_ID &&
+      process.env.R2_SECRET_ACCESS_KEY &&
+      process.env.R2_BUCKET_NAME
+    ),
+  },
 };
 
 module.exports = { validateEnv, config };
+

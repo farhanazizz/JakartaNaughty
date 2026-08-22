@@ -22,8 +22,10 @@ const { v4: uuidv4 } = require('uuid');
 const { getDb } = require('../config/database');
 const { submitJob, getJobStatus, downloadOutput } = require('./comfyui');
 const { pickBestGpu, decrementInFlight } = require('./vastai');
+const { uploadToR2, isR2Active, deleteFromR2 } = require('./r2Storage');
 const { config } = require('../config/env');
 const { logger } = require('../utils/logger');
+
 
 // -------------------------------------------------------
 // Konstanta
@@ -308,11 +310,32 @@ async function pollUntilDone(jobId, comfyUrl, promptId, token) {
     const { status, outputFiles, error } = await getJobStatus(comfyUrl, promptId, token);
 
     if (status === 'done' && outputFiles.length > 0) {
-      // Job selesai! Download output ke disk lokal
+      // Job selesai! Download output ke disk lokal sementara
       const outputFilename = `${jobId}.png`;
       const outputPath = path.join(config.upload.outputDir, outputFilename);
 
       await downloadOutput(comfyUrl, outputFiles[0], outputPath, token);
+
+      let finalOutputRef = outputFilename;
+
+      // Unggah ke Cloudflare R2 (S3-compatible CDN) jika aktif
+      if (isR2Active()) {
+        try {
+          const r2Key = `outputs/${jobId}.png`;
+          const r2Result = await uploadToR2(outputPath, r2Key, 'image/png');
+          finalOutputRef = r2Result.publicUrl;
+
+          // Hapus file lokal di VPS agar SSD server Coolify selalu bersih 0 MB
+          try {
+            if (fs.existsSync(outputPath)) {
+              fs.unlinkSync(outputPath);
+              logger.debug(`File lokal sementara dibersihkan: ${outputPath}`);
+            }
+          } catch (_) {}
+        } catch (r2Err) {
+          logger.warn(`Gagal upload ke Cloudflare R2 (${r2Err.message}), fallback ke file lokal.`);
+        }
+      }
 
       // Update database: selesai dengan sukses
       db.prepare(`
@@ -322,11 +345,12 @@ async function pollUntilDone(jobId, comfyUrl, promptId, token) {
           error_message = NULL,
           completed_at = ?
         WHERE id = ?
-      `).run(outputFilename, new Date().toISOString(), jobId);
+      `).run(finalOutputRef, new Date().toISOString(), jobId);
 
-      logger.info(`🎉 Job ${jobId} SELESAI DENGAN SUKSES: output=${outputFilename}`);
+      logger.info(`🎉 Job ${jobId} SELESAI DENGAN SUKSES: output=${finalOutputRef}`);
       return true;
     }
+
 
     if (status === 'failed') {
       throw new Error(error || 'ComfyUI melaporkan error pada rendering node');
@@ -381,9 +405,51 @@ async function runWorkerCycle() {
 }
 
 /**
- * Mulai job queue worker.
+ * Membersihkan file job yang berumur lebih dari 3 hari (72 jam)
+ * sesuai dengan kebijakan retensi penyimpanan sementara (Cloudflare R2 & Lokal).
+ */
+async function cleanExpiredJobs() {
+  try {
+    const db = getDb();
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+
+    const expiredJobs = db.prepare(`
+      SELECT id, output_filename FROM jobs
+      WHERE created_at < ? AND status = 'done'
+    `).all(threeDaysAgo);
+
+    if (expiredJobs.length === 0) return;
+
+    logger.info(`[Retention Sweeper] Ditemukan ${expiredJobs.length} job kadaluarsa (>3 hari). Membersihkan storage...`);
+
+    for (const job of expiredJobs) {
+      if (job.output_filename) {
+        if (job.output_filename.startsWith('http')) {
+          const key = job.output_filename.replace(config.r2.publicDomain, '').replace(/^\/+/, '');
+          await deleteFromR2(key);
+        } else {
+          const localPath = path.join(config.upload.outputDir, job.output_filename);
+          try {
+            if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
+          } catch (_) {}
+        }
+      }
+
+      // Tandai status sebagai expired di database
+      db.prepare(`
+        UPDATE jobs SET status = 'expired', output_filename = NULL WHERE id = ?
+      `).run(job.id);
+    }
+
+    logger.info(`[Retention Sweeper] Selesai membersihkan ${expiredJobs.length} job kadaluarsa.`);
+  } catch (err) {
+    logger.error('[Retention Sweeper] Gagal membersihkan job kadaluarsa:', err.message);
+  }
+}
+
+/**
+ * Mulai job queue worker & retention cleanup scheduler.
  * Dipanggil sekali saat server startup.
- * Worker berjalan terus sebagai background process dan bertindak sebagai watchdog.
  */
 function startQueueWorker() {
   logger.info(`Job queue worker dimulai (interval watchdog: ${WORKER_INTERVAL_MS / 1000}s)`);
@@ -398,6 +464,11 @@ function startQueueWorker() {
         logger.error('Worker error:', err.message);
       }
     }, WORKER_INTERVAL_MS);
+
+    // Jalankan pembersihan retensi 3 hari setiap 1 jam sekali (3600000 ms)
+    setInterval(cleanExpiredJobs, 60 * 60 * 1000);
+    // Jalankan sekali saat startup
+    cleanExpiredJobs().catch((err) => logger.warn('Initial cleanup error:', err.message));
   }, 2000);
 }
 
@@ -407,5 +478,7 @@ module.exports = {
   getQueuePosition,
   startQueueWorker,
   triggerQueueWorker,
+  cleanExpiredJobs,
 };
+
 

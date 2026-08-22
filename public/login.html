@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <!--
   ============================================================
-  public/login.html — Jakarta Naughty Member Login (Username & Password)
+  public/login.html — Jakarta Naughty Member Login (English)
   ============================================================
 -->
-<html lang="id" class="dark">
+<html lang="en" class="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Login Member — Jakarta Naughty</title>
+  <title>Member Login — Jakarta Naughty</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <script>
@@ -61,18 +61,18 @@
       <p class="text-[#FFDADA] text-xs font-semibold mt-1 tracking-wide uppercase">Edit Photo Studio</p>
     </div>
 
-    <!-- Card Login -->
+    <!-- Login Card -->
     <div class="glass-card rounded-3xl p-8 shadow-2xl">
 
-      <h2 class="text-lg font-bold text-white mb-2">Masuk ke Akun Member</h2>
-      <p class="text-xs text-slate-400 mb-6">Masukkan username & password untuk mulai generate foto.</p>
+      <h2 class="text-lg font-bold text-white mb-2">Member Sign In</h2>
+      <p class="text-xs text-slate-400 mb-6">Enter your username and password to access the generator.</p>
 
       <!-- Error Alert -->
       <div id="error-box" class="hidden mb-5 p-3.5 bg-red-950/60 border border-red-500/40 rounded-xl text-left">
         <p id="error-msg" class="text-red-300 text-xs font-medium"></p>
       </div>
 
-      <!-- Form Login -->
+      <!-- Login Form -->
       <form id="login-form" class="space-y-4 text-left">
         <div>
           <label for="username" class="block text-xs font-bold text-slate-300 mb-1.5">Username</label>
@@ -81,7 +81,7 @@
             id="username"
             required
             autocomplete="username"
-            placeholder="username"
+            placeholder="Enter username"
             class="w-full px-3.5 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand text-xs font-medium"
           />
         </div>
@@ -90,7 +90,7 @@
           <div class="flex items-center justify-between mb-1.5">
             <label for="password" class="block text-xs font-bold text-slate-300">Password</label>
             <button type="button" id="toggle-password" class="text-[11px] text-[#FFDADA] hover:text-brand transition-colors">
-              Lihat
+              Show
             </button>
           </div>
           <input
@@ -98,7 +98,7 @@
             id="password"
             required
             autocomplete="current-password"
-            placeholder="password"
+            placeholder="••••••••"
             class="w-full px-3.5 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand text-xs font-medium"
           />
         </div>
@@ -108,7 +108,7 @@
           id="btn-login"
           class="w-full py-3 bg-gradient-to-r from-[#FF788D] to-[#e0536b] hover:opacity-90 text-white font-bold rounded-xl transition-all text-xs shadow-lg shadow-[#FF788D]/25 mt-3 flex items-center justify-center gap-2"
         >
-          <span id="btn-text">Masuk Sekarang</span>
+          <span id="btn-text">Sign In Now</span>
           <svg id="btn-spinner" class="hidden w-4 h-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
@@ -119,10 +119,10 @@
       <!-- Footer Info -->
       <div class="mt-6 pt-5 border-t border-slate-800 text-center">
         <p class="text-slate-500 text-[11px]">
-          Belum memiliki akun atau kuota kredit?
+          Don't have an account or need credit top-up?
         </p>
         <p class="text-[#FFDADA] text-xs font-semibold mt-1">
-          Hubungi Admin untuk pendaftaran akun.
+          Contact the Administrator for account registration.
         </p>
       </div>
 
@@ -157,17 +157,17 @@
 
     function setLoading(isLoading) {
       btnLogin.disabled = isLoading;
-      btnText.textContent = isLoading ? 'Memproses...' : 'Masuk Sekarang';
+      btnText.textContent = isLoading ? 'Signing in...' : 'Sign In Now';
       btnSpinner.classList.toggle('hidden', !isLoading);
     }
 
     togglePass.addEventListener('click', () => {
       const isPassword = passInput.type === 'password';
       passInput.type = isPassword ? 'text' : 'password';
-      togglePass.textContent = isPassword ? 'Sembunyikan' : 'Lihat';
+      togglePass.textContent = isPassword ? 'Hide' : 'Show';
     });
 
-    // Cek apakah sudah login
+    // Check if already authenticated
     (async () => {
       try {
         const res = await fetch('/api/auth/me', { credentials: 'include' });
@@ -182,7 +182,7 @@
       } catch (_) {}
     })();
 
-    // Handle Submit
+    // Handle Login Submit
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       hideError();
@@ -191,7 +191,7 @@
       const password = passInput.value;
 
       if (!username || !password) {
-        return showError('Username dan password wajib diisi.');
+        return showError('Username and password are required.');
       }
 
       setLoading(true);
@@ -213,10 +213,10 @@
             window.location.href = '/dashboard.html';
           }
         } else {
-          showError(data.message || 'Login gagal. Periksa kembali username dan password Anda.');
+          showError(data.message || 'Authentication failed. Please check your credentials.');
         }
       } catch (err) {
-        showError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda.');
+        showError('Unable to connect to the server. Please check your internet connection.');
       } finally {
         setLoading(false);
       }
