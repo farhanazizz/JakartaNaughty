@@ -28,20 +28,9 @@ const path = require('path');
 const initSqlJs = require('sql.js');
 const { logger } = require('../utils/logger');
 
-// Path file database SQLite (Prioritaskan: env DB_PATH -> folder data/krea2.db -> root krea2.db)
-function resolveDbPath() {
-  if (process.env.DB_PATH) return process.env.DB_PATH;
-  
-  const dataDb = path.join(process.cwd(), 'data', 'krea2.db');
-  const rootDb = path.join(process.cwd(), 'krea2.db');
-  
-  if (fs.existsSync(dataDb)) return dataDb;
-  if (fs.existsSync(rootDb)) return rootDb;
-  
-  return dataDb;
-}
+// Path file database SQLite (di root project atau dari env DB_PATH)
+const DB_PATH = process.env.DB_PATH || path.join(process.cwd(), 'krea2.db');
 
-const DB_PATH = resolveDbPath();
 
 // Raw sql.js Database instance & wrapper singleton
 let rawDb = null;

@@ -234,8 +234,9 @@ async function startServer() {
     await ensureDefaultAdmin();
 
     const PORT = config.port;
-    server = app.listen(PORT, '0.0.0.0', () => {
-      logger.info(`🚀 Server berjalan di http://0.0.0.0:${PORT}`);
+    server = app.listen(PORT, () => {
+      logger.info(`🚀 Server berjalan di http://localhost:${PORT}`);
+
 
       logger.info(`   Mode: ${config.nodeEnv}`);
       logger.info(`   Admin emails: ${config.adminEmails.join(', ') || '(tidak dikonfigurasi)'}`);
