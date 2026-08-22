@@ -20,6 +20,11 @@ const router = express.Router();
 // GET /api/user/dashboard — Data ringkasan untuk dashboard
 // ============================================================
 router.get('/dashboard', authMiddleware, (req, res) => {
+  // Anti-cache header agar saldo selalu akurat
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
   const db = getDb();
 
   // Ambil saldo kredit terbaru
@@ -57,7 +62,12 @@ router.get('/dashboard', authMiddleware, (req, res) => {
 // GET /api/user/history — History lengkap dengan pagination
 // ============================================================
 router.get('/history', authMiddleware, (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
   const db     = getDb();
+
   const limit  = Math.min(parseInt(req.query.limit) || 20, 100);
   const offset = parseInt(req.query.offset) || 0;
 

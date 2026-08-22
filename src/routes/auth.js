@@ -176,22 +176,26 @@ router.post('/login', loginLimiter, async (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?)
     `).run(tokenId, user.id, tokenHash, expiresAt, now, req.ip);
 
-    // Set Cookies
+    // Set Cookies (Durasi: User = 30 Menit, Admin = 15 Hari)
+    const isAdmin = user.role === 'admin';
+    const accessCookieMaxAge = isAdmin ? 15 * 24 * 60 * 60 * 1000 : 30 * 60 * 1000;
+    const refreshCookieMaxAge = isAdmin ? 30 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
+
     res.cookie('access_token', accessToken, {
       ...COOKIE_OPTIONS,
-      maxAge: 15 * 60 * 1000, // 15 menit
+      maxAge: accessCookieMaxAge,
     });
 
     res.cookie('refresh_token', refreshToken, {
       ...COOKIE_OPTIONS,
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 hari
+      maxAge: refreshCookieMaxAge,
     });
 
     logSecurityEvent(req, {
       username: identifier,
       event: 'LOGIN_SUCCESS',
       status: 'SUCCESS',
-      detail: `Role: ${user.role}`,
+      detail: `Role: ${user.role} (Session: ${isAdmin ? '15d' : '30m'})`,
     });
 
     logger.info(`Login sukses: ${identifier} (role: ${user.role}) IP=${req.ip}`);
@@ -235,10 +239,15 @@ router.post('/logout', (req, res) => {
 });
 
 // ============================================================
-// GET /api/auth/me — Info user aktif
+// GET /api/auth/me — Info user aktif (Realtime, No-Cache)
 // ============================================================
 router.get('/me', authMiddleware, (req, res) => {
   try {
+    // Header anti-cache ketat agar saldo selalu realtime di browser
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
     const db = getDb();
     const user = db.prepare(
       'SELECT id, email, role, credits, is_active, created_at, last_login_at FROM users WHERE id = ?'
@@ -280,12 +289,13 @@ router.get('/google/admin/callback', (req, res, next) => {
       return res.redirect('/admin/login.html?error=unauthorized');
     }
 
-    // Buat JWT untuk admin
+    // Buat JWT untuk admin (15 hari)
     const accessToken = generateAccessToken(user.id, 'admin');
     res.cookie('access_token', accessToken, {
       ...COOKIE_OPTIONS,
-      maxAge: 60 * 60 * 1000, // 1 jam
+      maxAge: 15 * 24 * 60 * 60 * 1000, // 15 hari
     });
+
 
     logSecurityEvent(req, {
       username: user.email,

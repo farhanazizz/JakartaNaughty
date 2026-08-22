@@ -161,15 +161,8 @@
               placeholder="Contoh: Ubah gaya pencahayaan menjadi cinematic glamour studio lighting, rambut ikal terurai natural, gaun satin merah elegan, latar belakang mewah..."
               class="w-full px-4 py-3 bg-slate-900/90 border border-slate-700 rounded-2xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand leading-relaxed"
             ></textarea>
-
-            <!-- Quick Suggestions -->
-            <div class="mt-2.5 flex flex-wrap gap-1.5">
-              <span class="text-[10px] text-slate-500 py-1">Inspirasi:</span>
-              <button type="button" onclick="appendPrompt('cinematic studio portrait, professional lighting, photorealistic 8k')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[10px] border border-slate-700 font-medium">✨ Cinematic Studio</button>
-              <button type="button" onclick="appendPrompt('glamour aesthetic dress, soft rim light, luxury interior bokeh')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[10px] border border-slate-700 font-medium">👗 Luxury Glamour</button>
-              <button type="button" onclick="appendPrompt('natural outdoor golden hour sunset, warm glow, magazine editorial')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[10px] border border-slate-700 font-medium">🌅 Golden Hour</button>
-            </div>
           </div>
+
 
           <!-- Advanced Settings (Collapsible) -->
           <div class="mb-5 border-t border-slate-800/80 pt-3">
@@ -329,16 +322,29 @@
       }, 4000);
     }
 
-    // Init User Data
-    (async function init() {
+    // -------------------------------------------------------
+    // Sync User Credits secara Realtime (Anti-Cache & BFCache safe)
+    // -------------------------------------------------------
+    async function syncUserCredits() {
       try {
-        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        const res = await fetch('/api/auth/me?t=' + Date.now(), {
+          credentials: 'include',
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+        });
         if (!res.ok) { window.location.href = '/login.html'; return; }
         const d = await res.json();
-        userCredits = d.data.credits || 0;
-        document.getElementById('user-credits-display').textContent = userCredits;
+        userCredits = d.data.credits ?? 0;
+        const displayEl = document.getElementById('user-credits-display');
+        if (displayEl) displayEl.textContent = userCredits;
       } catch (_) {}
-    })();
+    }
+
+    // Inisialisasi & Pasang Event Listener Realtime
+    syncUserCredits();
+    window.addEventListener('pageshow', () => syncUserCredits());
+    window.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncUserCredits(); });
+    window.addEventListener('focus', () => syncUserCredits());
 
     // Drag and Drop & File Upload Handling
     const dropZone = document.getElementById('drop-zone');
@@ -384,12 +390,6 @@
       fileInput.value = '';
       document.getElementById('upload-prompt-view').classList.remove('hidden');
       document.getElementById('upload-preview-view').classList.add('hidden');
-    }
-
-    function appendPrompt(text) {
-      const ta = document.getElementById('prompt-input');
-      ta.value = ta.value ? `${ta.value.trim()}, ${text}` : text;
-      ta.focus();
     }
 
     function toggleAdvancedSettings() {
@@ -455,7 +455,6 @@
 
       try {
         const res = await fetch('/api/generate', {
-
           method: 'POST',
           credentials: 'include',
           body: formData,
@@ -475,10 +474,12 @@
           resetGenerateButton();
           document.getElementById('result-processing').classList.add('hidden');
           document.getElementById('result-placeholder').classList.remove('hidden');
+          syncUserCredits();
         }
       } catch (err) {
         showToast('Gagal terhubung ke server: ' + err.message, 'error');
         resetGenerateButton();
+        syncUserCredits();
       }
     }
 
@@ -487,7 +488,10 @@
 
       pollingInterval = setInterval(async () => {
         try {
-          const res = await fetch(`/api/jobs/${jobId}`, { credentials: 'include' });
+          const res = await fetch(`/api/jobs/${jobId}`, {
+            credentials: 'include',
+            cache: 'no-store'
+          });
           if (!res.ok) return;
           const d = await res.json();
           const job = d.data;
@@ -510,18 +514,14 @@
             document.getElementById('result-action-box').classList.remove('hidden');
 
             showToast('Foto selesai dirender!', 'success');
+            syncUserCredits();
           } else if (job.status === 'failed') {
             clearInterval(pollingInterval);
             resetGenerateButton();
             document.getElementById('result-processing').classList.add('hidden');
             document.getElementById('result-placeholder').classList.remove('hidden');
             showToast('Generate gagal. Kredit Anda telah dikembalikan secara otomatis.', 'error');
-            // Refresh balance
-            const meRes = await fetch('/api/auth/me', { credentials: 'include' });
-            if (meRes.ok) {
-              const meData = await meRes.json();
-              document.getElementById('user-credits-display').textContent = meData.data.credits;
-            }
+            syncUserCredits();
           }
         } catch (e) {
           console.error('Polling error:', e);
@@ -537,6 +537,7 @@
       btnText.textContent = '✨ Generate Foto Sekarang (1 Kredit)';
       btnSpinner.classList.add('hidden');
     }
+
   </script>
 </body>
 </html>

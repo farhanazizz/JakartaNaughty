@@ -188,9 +188,15 @@
   </main>
 
   <script>
+    let dashboardPollingInterval = null;
+
     async function loadDashboard() {
       try {
-        const res = await fetch('/api/user/dashboard', { credentials: 'include' });
+        const res = await fetch('/api/user/dashboard?t=' + Date.now(), {
+          credentials: 'include',
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+        });
         if (!res.ok) {
           window.location.href = '/login.html';
           return;
@@ -212,6 +218,19 @@
             </tr>
           `;
           return;
+        }
+
+        // Cek apakah ada job yang masih pending atau processing
+        const hasActiveJobs = recentJobs.some(j => j.status === 'pending' || j.status === 'processing');
+        if (hasActiveJobs) {
+          if (!dashboardPollingInterval) {
+            dashboardPollingInterval = setInterval(loadDashboard, 4000);
+          }
+        } else {
+          if (dashboardPollingInterval) {
+            clearInterval(dashboardPollingInterval);
+            dashboardPollingInterval = null;
+          }
         }
 
         tbody.innerHTML = recentJobs.map(j => {
@@ -259,7 +278,12 @@
       return d.innerHTML;
     }
 
+    // Inisialisasi & Pasang Event Listener Realtime
     loadDashboard();
+    window.addEventListener('pageshow', () => loadDashboard());
+    window.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') loadDashboard(); });
+    window.addEventListener('focus', () => loadDashboard());
   </script>
 </body>
 </html>
+

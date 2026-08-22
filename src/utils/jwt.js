@@ -21,22 +21,26 @@ const { config } = require('../config/env');
 
 /**
  * Membuat access token JWT untuk user yang login.
- * Token ini berumur pendek (15 menit) untuk keamanan.
+ * Durasi:
+ *  - User biasa: 30 menit (30m)
+ *  - Administrator: 15 hari (15d)
  *
  * @param {string} userId - ID user dari database
  * @param {string} role   - Role user: 'user' atau 'admin'
  * @returns {string} JWT access token
  */
 function generateAccessToken(userId, role) {
+  const expiresIn = role === 'admin' ? '15d' : '30m';
   return jwt.sign(
     {
       sub: userId, // subject = user ID
       role,        // role untuk cek otorisasi
     },
     config.jwt.secret,
-    { expiresIn: config.jwt.accessExpire }
+    { expiresIn }
   );
 }
+
 
 /**
  * Membuat refresh token JWT.
