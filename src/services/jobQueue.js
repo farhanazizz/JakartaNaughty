@@ -477,28 +477,30 @@ function reconcileStuckJobs() {
     const db = getDb();
     const cutoffTime = new Date(Date.now() - JOB_TIMEOUT_MS).toISOString();
 
-    // 1. Cari job 'processing' atau 'pending' yang sudah melebihi batas timeout
+    // 1. Cari job 'processing' yang sudah berjalan melebihi batas waktu maksimal (timeout eksekusi)
     const stuckJobs = db.prepare(`
       SELECT * FROM jobs
-      WHERE status IN ('processing', 'pending')
-        AND created_at < ?
+      WHERE status = 'processing'
+        AND started_at IS NOT NULL
+        AND started_at < ?
     `).all(cutoffTime);
 
-    // 2. Cari job yang tercatat 'processing' di DB tetapi TIDAK ada di memori aktif server (orphaned saat reboot/crash)
-    const allDbActive = db.prepare(`
+    // 2. Cari job 'processing' yang terputus di tengah jalan saat server/backend restart (tidak ada di activeJobs memory)
+    const activeDbProcessing = db.prepare(`
       SELECT * FROM jobs
-      WHERE status IN ('processing', 'pending')
+      WHERE status = 'processing'
     `).all();
 
-    const orphanJobs = allDbActive.filter(job => {
+    const orphanJobs = activeDbProcessing.filter(job => {
       const isNotInActiveMemory = !activeJobs.has(job.id);
-      const isOlderThanOneMinute = (Date.now() - new Date(job.created_at).getTime()) > 45000;
-      return isNotInActiveMemory && isOlderThanOneMinute;
+      const isOlderThanThirtySec = (Date.now() - new Date(job.started_at || job.created_at).getTime()) > 30000;
+      return isNotInActiveMemory && isOlderThanThirtySec;
     });
 
     const jobsToFailMap = new Map();
     [...stuckJobs, ...orphanJobs].forEach(j => jobsToFailMap.set(j.id, j));
     const jobsToFail = Array.from(jobsToFailMap.values());
+
 
     if (jobsToFail.length === 0) return;
 
