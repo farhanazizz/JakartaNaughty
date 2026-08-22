@@ -493,74 +493,107 @@ async function submitJob(comfyUrl, { sourceImagePath, positivePrompt, negativePr
 // -------------------------------------------------------
 
 /**
- * Mengecek status job di ComfyUI via /history endpoint.
+ * Mengecek status job di ComfyUI via /history dan /queue endpoint.
  *
  * @param {string} comfyUrl   - URL base ComfyUI
  * @param {string} promptId   - Prompt ID dari submitJob()
  * @param {string} [token=''] - Token auth
- * @returns {Promise<{status: string, outputFiles: Array, error?: string}>}
+ * @param {number} [elapsedMs=0] - Durasi waktu sejak submit (ms)
+ * @returns {Promise<{status: string, outputFiles: Array, error?: string, networkError?: boolean}>}
  */
-async function getJobStatus(comfyUrl, promptId, token) {
+async function getJobStatus(comfyUrl, promptId, token, elapsedMs = 0) {
   token = token || '';
   try {
+    // 1. Cek history di ComfyUI
     const historyUrl = withToken(comfyUrl + '/history/' + promptId, token);
     const res = await fetch(historyUrl, {
       headers: makeHeaders(token),
-      timeout: 8000,
+      timeout: 6000,
     });
 
-    if (!res.ok) {
-      return { status: 'pending', outputFiles: [] };
-    }
+    if (res.ok) {
+      const history = await res.json();
 
-    const history = await res.json();
+      if (history && history[promptId]) {
+        const jobHistory = history[promptId];
+        const outputs    = jobHistory.outputs || {};
 
-    // Jika prompt ID tidak ada di history → masih pending
-    if (!history[promptId]) {
-      return { status: 'pending', outputFiles: [] };
-    }
+        // Cari output berupa gambar dari semua node
+        const outputFiles = [];
+        for (const nodeId of Object.keys(outputs)) {
+          const nodeOutput = outputs[nodeId];
+          if (nodeOutput && nodeOutput.images) {
+            for (const img of nodeOutput.images) {
+              outputFiles.push({
+                filename:  img.filename,
+                subfolder: img.subfolder || '',
+                type:      img.type || 'output',
+              });
+            }
+          }
+        }
 
-    const jobHistory = history[promptId];
-    const outputs    = jobHistory.outputs || {};
+        // Cek apakah ada error di node execution
+        const statusObj = jobHistory.status || {};
+        if (statusObj.status_str === 'error' || statusObj.completed === false) {
+          const errorMsg = statusObj.messages
+            && statusObj.messages.find(function(m) { return m[0] === 'execution_error'; });
+          return {
+            status:      'failed',
+            outputFiles: [],
+            error:       (errorMsg && errorMsg[1] && errorMsg[1].exception_message) || 'ComfyUI node execution error during generation',
+          };
+        }
 
-    // Cari output berupa gambar dari semua node
-    const outputFiles = [];
-    for (const nodeId of Object.keys(outputs)) {
-      const nodeOutput = outputs[nodeId];
-      if (nodeOutput.images) {
-        for (const img of nodeOutput.images) {
-          outputFiles.push({
-            filename:  img.filename,
-            subfolder: img.subfolder || '',
-            type:      img.type || 'output',
-          });
+        if (outputFiles.length > 0) {
+          return { status: 'done', outputFiles };
         }
       }
     }
 
-    // Cek apakah ada error
-    const statusObj = jobHistory.status || {};
-    if (statusObj.status_str === 'error' || statusObj.completed === false) {
-      const errorMsg = statusObj.messages
-        && statusObj.messages.find(function(m) { return m[0] === 'execution_error'; });
-      return {
-        status:      'failed',
-        outputFiles: [],
-        error:       (errorMsg && errorMsg[1] && errorMsg[1].exception_message) || 'Unknown ComfyUI error',
-      };
-    }
+    // 2. Jika belum ada di history, periksa /queue ComfyUI untuk verifikasi keaktifan job
+    const queueUrl = withToken(comfyUrl + '/queue', token);
+    const qRes = await fetch(queueUrl, {
+      headers: makeHeaders(token),
+      timeout: 5000,
+    });
 
-    if (outputFiles.length > 0) {
-      return { status: 'done', outputFiles };
+    if (qRes.ok) {
+      const qData = await qRes.json();
+      const isRunning = (qData.queue_running || []).some(item => Array.isArray(item) && item[1] === promptId);
+      const isPending = (qData.queue_pending || []).some(item => Array.isArray(item) && item[1] === promptId);
+
+      if (isRunning) {
+        return { status: 'processing', outputFiles: [] };
+      }
+      if (isPending) {
+        return { status: 'pending', outputFiles: [] };
+      }
+
+      // Jika lebih dari 6 detik sejak submit dan TIDAK ADA di history maupun antrian aktif:
+      // Berarti proses terputus, dihapus, atau ComfyUI direstart!
+      if (elapsedMs > 6000) {
+        return {
+          status: 'failed',
+          outputFiles: [],
+          error: 'Job was interrupted or lost (GPU/ComfyUI restarted)',
+        };
+      }
     }
 
     return { status: 'processing', outputFiles: [] };
 
   } catch (err) {
-    logger.debug('Error cek status job ' + promptId + ': ' + err.message);
-    return { status: 'pending', outputFiles: [] };
+    logger.debug(`Error cek status job ${promptId} di ${comfyUrl}: ${err.message}`);
+    return {
+      status: 'unreachable',
+      outputFiles: [],
+      error: `GPU connection error: ${err.message}`,
+      networkError: true,
+    };
   }
 }
+
 
 // -------------------------------------------------------
 // Download Output

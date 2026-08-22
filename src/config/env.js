@@ -105,8 +105,9 @@ const config = {
   // Job Queue
   jobs: {
     maxConcurrentPerUser: parseInt(process.env.MAX_CONCURRENT_JOBS_PER_USER || '3', 10),
-    timeoutMinutes: parseInt(process.env.JOB_TIMEOUT_MINUTES || '10', 10),
+    timeoutMinutes: parseInt(process.env.JOB_TIMEOUT_MINUTES || '3', 10),
   },
+
 
   // Upload
   upload: {

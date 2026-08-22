@@ -305,16 +305,29 @@ async function pollUntilDone(jobId, comfyUrl, promptId, token) {
   token = token || '';
   const db        = getDb();
   const startTime = Date.now();
+  let consecutiveNetworkErrors = 0;
 
   // Loop polling setiap POLL_INTERVAL_MS
   while (true) {
-    // Cek timeout
-    if (Date.now() - startTime > JOB_TIMEOUT_MS) {
-      throw new Error(`Timeout: proses melebihi batas waktu ${config.jobs.timeoutMinutes} menit`);
+    const elapsed = Date.now() - startTime;
+
+    // Cek timeout (default 3 menit)
+    if (elapsed > JOB_TIMEOUT_MS) {
+      throw new Error(`Timeout: proses melebihi batas waktu maksimal (${Math.round(JOB_TIMEOUT_MS / 60000)} menit)`);
     }
 
-    // Cek status di ComfyUI — sertakan token auth
-    const { status, outputFiles, error } = await getJobStatus(comfyUrl, promptId, token);
+    // Cek status di ComfyUI — sertakan token auth dan elapsed time
+    const { status, outputFiles, error, networkError } = await getJobStatus(comfyUrl, promptId, token, elapsed);
+
+    if (networkError) {
+      consecutiveNetworkErrors++;
+      // Jika 4 kali polling berturut-turut (~10 detik) GPU tidak merespon / offline:
+      if (consecutiveNetworkErrors >= 4) {
+        throw new Error(`Koneksi GPU terputus atau ComfyUI direstart (${error})`);
+      }
+    } else {
+      consecutiveNetworkErrors = 0;
+    }
 
     if (status === 'done' && outputFiles.length > 0) {
       // Job selesai! Download output ke disk lokal sementara
@@ -358,7 +371,6 @@ async function pollUntilDone(jobId, comfyUrl, promptId, token) {
       return true;
     }
 
-
     if (status === 'failed') {
       throw new Error(error || 'ComfyUI melaporkan error pada rendering node');
     }
@@ -367,6 +379,7 @@ async function pollUntilDone(jobId, comfyUrl, promptId, token) {
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
   }
 }
+
 
 /**
  * Memanggil cycle worker seketika (tanpa menunggu timer interval)
@@ -455,6 +468,69 @@ async function cleanExpiredJobs() {
 }
 
 /**
+ * Memulihkan dan membatalkan job yang terdampar / stuck di database.
+ * Jika job berstatus 'processing' atau 'pending' tanpa ada worker yang aktif,
+ * atau terjadi restart server/GPU, gagalkan job tersebut dan kembalikan kredit user secara otomatis.
+ */
+function reconcileStuckJobs() {
+  try {
+    const db = getDb();
+    const cutoffTime = new Date(Date.now() - JOB_TIMEOUT_MS).toISOString();
+
+    // 1. Cari job 'processing' atau 'pending' yang sudah melebihi batas timeout
+    const stuckJobs = db.prepare(`
+      SELECT * FROM jobs
+      WHERE status IN ('processing', 'pending')
+        AND created_at < ?
+    `).all(cutoffTime);
+
+    // 2. Cari job yang tercatat 'processing' di DB tetapi TIDAK ada di memori aktif server (orphaned saat reboot/crash)
+    const allDbActive = db.prepare(`
+      SELECT * FROM jobs
+      WHERE status IN ('processing', 'pending')
+    `).all();
+
+    const orphanJobs = allDbActive.filter(job => {
+      const isNotInActiveMemory = !activeJobs.has(job.id);
+      const isOlderThanOneMinute = (Date.now() - new Date(job.created_at).getTime()) > 45000;
+      return isNotInActiveMemory && isOlderThanOneMinute;
+    });
+
+    const jobsToFailMap = new Map();
+    [...stuckJobs, ...orphanJobs].forEach(j => jobsToFailMap.set(j.id, j));
+    const jobsToFail = Array.from(jobsToFailMap.values());
+
+    if (jobsToFail.length === 0) return;
+
+    logger.warn(`[Job Reconciler] Ditemukan ${jobsToFail.length} job stuck/terputus. Menggagalkan dan mengembalikan kredit...`);
+
+    const { addCredit } = require('./creditService');
+
+    for (const job of jobsToFail) {
+      const errMsg = 'Proses generate terputus (GPU/Server direstart atau melebihi batas waktu)';
+      
+      db.prepare(`
+        UPDATE jobs SET
+          status = 'failed',
+          error_message = ?,
+          completed_at = ?
+        WHERE id = ?
+      `).run(errMsg, new Date().toISOString(), job.id);
+
+      try {
+        const credits = job.credits_used || 1;
+        addCredit(job.user_id, credits, `Refund otomatis: generate terputus (${job.resolution ? job.resolution.toUpperCase() : '1MP'})`, null);
+        logger.info(`[Job Reconciler] ✅ Refund ${credits} kredit berhasil dikembalikan ke user ${job.user_id} (job ${job.id})`);
+      } catch (refErr) {
+        logger.error(`[Job Reconciler] Gagal refund untuk job ${job.id}: ${refErr.message}`);
+      }
+    }
+  } catch (err) {
+    logger.error('Error di reconcileStuckJobs:', err.message);
+  }
+}
+
+/**
  * Mulai job queue worker & retention cleanup scheduler.
  * Dipanggil sekali saat server startup.
  */
@@ -463,7 +539,10 @@ function startQueueWorker() {
 
   // Jalankan worker pertama kali setelah 2 detik (beri waktu server siap)
   setTimeout(() => {
-    // Watchdog interval untuk memastikan tidak ada job yang tertinggal
+    // 1. Segera pulihkan dan refund job yang stuck dari session sebelumnya
+    reconcileStuckJobs();
+
+    // 2. Watchdog interval untuk memproses antrian job
     setInterval(async () => {
       try {
         await runWorkerCycle();
@@ -472,7 +551,10 @@ function startQueueWorker() {
       }
     }, WORKER_INTERVAL_MS);
 
-    // Jalankan pembersihan retensi 3 hari setiap 1 jam sekali (3600000 ms)
+    // 3. Periodic reconciler setiap 30 detik untuk mendeteksi job stuck
+    setInterval(reconcileStuckJobs, 30000);
+
+    // 4. Jalankan pembersihan retensi 3 hari setiap 1 jam sekali (3600000 ms)
     setInterval(cleanExpiredJobs, 60 * 60 * 1000);
     // Jalankan sekali saat startup
     cleanExpiredJobs().catch((err) => logger.warn('Initial cleanup error:', err.message));
@@ -486,6 +568,8 @@ module.exports = {
   startQueueWorker,
   triggerQueueWorker,
   cleanExpiredJobs,
+  reconcileStuckJobs,
 };
+
 
 
