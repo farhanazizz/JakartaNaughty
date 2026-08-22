@@ -8,7 +8,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Edit Photo Studio — Jakarta Naughty</title>
+  <title>Photo Creator — Jakarta Naughty</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <script>
@@ -99,7 +99,6 @@
           <a href="/dashboard.html" class="font-extrabold text-white text-base tracking-tight hover:text-brand transition-colors">
             Jakarta Naughty
           </a>
-          <p class="text-[10px] text-[#FFDADA] font-semibold tracking-wider uppercase">Edit Photo Studio</p>
         </div>
       </div>
 
@@ -117,7 +116,7 @@
     </div>
   </header>
 
-  <!-- Studio Main Content -->
+  <!-- Main Content -->
   <main class="flex-1 max-w-6xl w-full mx-auto p-4 md:p-8">
 
     <!-- 3-Day Temporary Storage Policy Alert Banner -->
@@ -133,10 +132,11 @@
 
     <div class="mb-6">
       <h1 class="text-2xl md:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2.5">
-        <span>📸</span> Edit Photo Studio
+        <span>📸</span> Photo Creator
       </h1>
-      <p class="text-xs text-slate-400 mt-1">Upload a source photo, choose output resolution, describe your desired style, and let the AI studio refine it.</p>
+      <p class="text-xs text-slate-400 mt-1">Upload a source photo, select your quality, describe what you want, and create your photo.</p>
     </div>
+
 
     <!-- 2 Column Workspace Grid -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -219,17 +219,17 @@
             ></textarea>
           </div>
 
-          <!-- Advanced Settings (Collapsible) -->
+          <!-- Optional Settings (Collapsible) -->
           <div class="mb-5 border-t border-slate-800/80 pt-3">
             <button type="button" onclick="toggleAdvancedSettings()" class="text-xs text-[#FFDADA] hover:text-brand font-semibold flex items-center gap-1.5 transition-colors">
-              <span id="advanced-arrow">▶</span> Advanced Parameters (Identity Fidelity, Negative Prompt, Seed)
+              <span id="advanced-arrow">▶</span> Additional Settings (Face Likeness, Details to Avoid, Seed)
             </button>
             <div id="advanced-settings-box" class="hidden mt-3 space-y-3.5 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
               <!-- Ref Boost Slider -->
               <div>
                 <div class="flex items-center justify-between mb-1.5">
                   <label for="ref-boost-input" class="block text-xs font-semibold text-slate-300">
-                    Identity Fidelity / Reference Boost
+                    Face & Identity Accuracy
                   </label>
                   <span class="text-xs font-bold text-brand font-mono" id="ref-boost-display">4.2</span>
                 </div>
@@ -244,15 +244,15 @@
                   class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-[#FF788D]"
                 />
                 <div class="flex justify-between text-[10px] text-slate-500 mt-1">
-                  <span>1.0 (Creative Freedom)</span>
-                  <span class="text-[#FFDADA] font-semibold">4.2 (Recommended Default)</span>
+                  <span>1.0 (Creative Blend)</span>
+                  <span class="text-[#FFDADA] font-semibold">4.2 (Recommended)</span>
                   <span>8.0 (Strict Resemblance)</span>
                 </div>
               </div>
 
               <!-- Negative Prompt -->
               <div>
-                <label for="negative-prompt-input" class="block text-xs font-semibold text-slate-300 mb-1">Negative Prompt (Elements to Avoid)</label>
+                <label for="negative-prompt-input" class="block text-xs font-semibold text-slate-300 mb-1">Avoid in Photo (Optional)</label>
                 <input
                   type="text"
                   id="negative-prompt-input"
@@ -260,6 +260,7 @@
                   class="w-full px-3.5 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand"
                 />
               </div>
+
 
               <!-- Seed -->
               <div>
@@ -302,7 +303,7 @@
 
           <div>
             <h3 class="font-bold text-sm text-white mb-3 flex items-center justify-between">
-              <span>🖼️ Studio Output</span>
+              <span>🖼️ Generated Result</span>
               <span id="job-status-badge" class="hidden px-2.5 py-0.5 rounded-full text-[10px] font-bold"></span>
             </h3>
 
@@ -310,7 +311,7 @@
             <div id="result-placeholder" class="border border-slate-800 rounded-2xl p-10 text-center bg-slate-900/40 my-6">
               <div class="text-4xl mb-3">🎨</div>
               <div class="font-bold text-xs text-slate-300">Generated Photo Will Appear Here</div>
-              <div class="text-[11px] text-slate-500 mt-1">Upload a photo and click Generate to start studio rendering.</div>
+              <div class="text-[11px] text-slate-500 mt-1">Upload a photo and click Generate to create your image.</div>
             </div>
 
             <!-- Loading Processing State -->
@@ -319,7 +320,7 @@
                 ⚙️
               </div>
               <div>
-                <div class="font-bold text-sm text-white" id="processing-title">Connecting to Studio GPUs...</div>
+                <div class="font-bold text-sm text-white" id="processing-title">Preparing your photo...</div>
                 <div class="text-xs text-brand font-semibold mt-1" id="processing-desc">Please hold on for a moment</div>
               </div>
             </div>
@@ -327,7 +328,7 @@
             <!-- Completed Result State -->
             <div id="result-completed" class="hidden my-4 space-y-4">
               <div class="rounded-2xl overflow-hidden border border-slate-700 shadow-2xl relative group bg-black">
-                <img id="result-image" class="w-full object-contain max-h-[380px] mx-auto" alt="Studio Output" />
+                <img id="result-image" class="w-full object-contain max-h-[380px] mx-auto" alt="Generated Photo" />
               </div>
             </div>
           </div>
@@ -392,10 +393,11 @@
         onclick="acceptTerms()"
         class="w-full py-3 bg-gradient-to-r from-[#FF788D] to-[#e0536b] disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all text-xs shadow-lg shadow-[#FF788D]/25 text-center"
       >
-        Accept & Proceed to Studio
+        Accept & Continue
       </button>
     </div>
   </div>
+
 
   <script>
     let userCredits = 0;
@@ -579,7 +581,7 @@
       const btnSpinner = document.getElementById('btn-generate-spinner');
 
       btn.disabled = true;
-      btnText.textContent = 'Submitting to Studio...';
+      btnText.textContent = 'Creating Photo...';
       btnSpinner.classList.remove('hidden');
 
       // Update Result UI
@@ -587,7 +589,7 @@
       document.getElementById('result-completed').classList.add('hidden');
       document.getElementById('result-action-box').classList.add('hidden');
       document.getElementById('result-processing').classList.remove('hidden');
-      document.getElementById('processing-title').textContent = 'Queuing Job in Studio...';
+      document.getElementById('processing-title').textContent = 'Preparing your photo...';
 
       const formData = new FormData();
       formData.append('source_image', selectedFile);
@@ -619,7 +621,7 @@
         if (res.ok && d.success) {
           userCredits = Math.max(0, userCredits - creditsRequired);
           document.getElementById('user-credits-display').textContent = userCredits;
-          showToast(`Job queued in studio successfully! (${selectedResolution.toUpperCase()})`, 'success');
+          showToast(`Photo request submitted! (${selectedResolution.toUpperCase()})`, 'success');
 
           // Start polling job status
           pollJobStatus(d.data.jobId);
@@ -651,11 +653,11 @@
           const job = d.data;
 
           if (job.status === 'processing') {
-            document.getElementById('processing-title').textContent = 'GPU Studio is Rendering Image...';
-            document.getElementById('processing-desc').textContent = 'AI diffusion process in progress...';
+            document.getElementById('processing-title').textContent = 'Creating your photo...';
+            document.getElementById('processing-desc').textContent = 'Polishing image details...';
           } else if (job.status === 'pending') {
-            document.getElementById('processing-title').textContent = `Waiting in Studio Queue (Position #${job.queuePosition || 1})`;
-            document.getElementById('processing-desc').textContent = 'GPU cluster will process your photo shortly.';
+            document.getElementById('processing-title').textContent = `Waiting in line (Position #${job.queuePosition || 1})`;
+            document.getElementById('processing-desc').textContent = 'Your photo will be created shortly.';
           } else if (job.status === 'done') {
             clearInterval(pollingInterval);
             resetGenerateButton();
@@ -667,7 +669,7 @@
             document.getElementById('result-completed').classList.remove('hidden');
             document.getElementById('result-action-box').classList.remove('hidden');
 
-            showToast('Artwork generated successfully!', 'success');
+            showToast('Photo created successfully!', 'success');
             syncUserCredits();
           } else if (job.status === 'failed') {
             clearInterval(pollingInterval);
@@ -682,6 +684,7 @@
         }
       }, 3000);
     }
+
 
     function resetGenerateButton() {
       const btn = document.getElementById('btn-generate');
