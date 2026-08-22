@@ -253,17 +253,15 @@ async function refreshGpuPool() {
 
 /**
  * Memilih GPU terbaik secara dinamis menggunakan Least-Connection + Round-Robin.
- * Mendukung daftar eksklusi GPU jika terjadi failover.
+ * Pemilihan dan reservasi in-flight dilakukan secara instan dan sinkron di memori
+ * untuk mencegah kondisi balapan asinkron saat banyak user klik bersamaan di detik yang sama.
  *
  * @param {Array<string>} [excludeGpuIds=[]] - ID GPU yang dilewati (misal yang baru saja gagal)
  * @returns {Promise<Object|null>} GPU terpilih
  */
 async function pickBestGpu(excludeGpuIds = []) {
-  const now = Date.now();
-  const cacheAge = (now - lastRefreshTime) / 1000;
-
-  // Refresh pool jika cache sudah lebih dari 15 detik atau pool kosong
-  if (cacheAge > 15 || gpuPool.length === 0) {
+  // Jika pool kosong, lakukan refresh darurat
+  if (gpuPool.length === 0) {
     await refreshGpuPool();
   }
 
@@ -289,6 +287,7 @@ async function pickBestGpu(excludeGpuIds = []) {
 
 /**
  * Memilih kandidat GPU terbaik berdasarkan total beban efektif & Round-Robin.
+ * Dijalankan secara sinkron dan langsung mengunci (increment in-flight) di memori.
  * @private
  */
 function pickFromCandidates(candidates) {
@@ -310,19 +309,20 @@ function pickFromCandidates(candidates) {
 
   // Jika ada lebih dari 1 GPU dengan beban sama, gunakan Round-Robin bergantian
   const chosenIndex = roundRobinIndex % bestCandidates.length;
-  roundRobinIndex++;
+  roundRobinIndex = (roundRobinIndex + 1) % 1000000;
   const chosenGpu = bestCandidates[chosenIndex];
 
-  // Naikkan counter in-flight secara realtime seketika itu juga
+  // Naikkan counter in-flight secara realtime seketika itu juga (SINKRON)
   incrementInFlight(chosenGpu.id);
 
   logger.info(
-    `[Load Balancer] Dipilih GPU ${chosenGpu.id} (${chosenGpu.gpuName}) | ` +
-    `Queue=${chosenGpu.queueLength}, InFlight=${getInFlight(chosenGpu.id)} | Total Kandidat Online=${candidates.length}`
+    `[Smart Load Balancer] ⚡ Dispatched ke GPU #${chosenGpu.id} (${chosenGpu.gpuName}) | ` +
+    `Queue=${chosenGpu.queueLength}, InFlight=${getInFlight(chosenGpu.id)} | Kandidat Ready=${candidates.length}`
   );
 
   return chosenGpu;
 }
+
 
 /**
  * Mendapatkan daftar GPU pool yang sedang aktif beserta in-flight count.

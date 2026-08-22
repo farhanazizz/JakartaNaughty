@@ -108,8 +108,15 @@ function enqueueJob(userId, jobData) {
 
   logger.info(`Job baru: id=${jobId} user=${userId} posisi=${position.count}`);
 
-  return { jobId, queuePosition: position.count };
+  // Pemicu instan: langsung jalankan worker dalam hitungan milidetik tanpa menunggu timer
+  triggerQueueWorker();
+
+  return {
+    jobId,
+    queuePosition: position.count,
+  };
 }
+
 
 /**
  * Mendapatkan info job berdasarkan ID.
@@ -331,8 +338,19 @@ async function pollUntilDone(jobId, comfyUrl, promptId, token) {
 }
 
 /**
- * Worker loop — dijalankan setiap WORKER_INTERVAL_MS.
- * Ambil job pending dan mulai proses.
+ * Memanggil cycle worker seketika (tanpa menunggu timer interval)
+ */
+function triggerQueueWorker() {
+  setImmediate(() => {
+    runWorkerCycle().catch((err) => {
+      logger.error('Triggered worker cycle error:', err.message);
+    });
+  });
+}
+
+/**
+ * Worker loop — dijalankan secara instan (event-driven) dan berkala (heartbeat).
+ * Mengambil job pending dan langsung mengalokasikannya ke GPU secara seimbang.
  */
 async function runWorkerCycle() {
   const db = getDb();
@@ -342,31 +360,37 @@ async function runWorkerCycle() {
     SELECT * FROM jobs
     WHERE status = 'pending'
     ORDER BY created_at ASC
-    LIMIT 5
+    LIMIT 10
   `).all();
 
   // Filter job yang belum ada di activeJobs
   const jobsToProcess = pendingJobs.filter((job) => !activeJobs.has(job.id));
 
-  if (jobsToProcess.length === 0) return; // Tidak ada yang perlu diproses
+  if (jobsToProcess.length === 0) return;
 
-  logger.debug(`Worker: ${jobsToProcess.length} job pending ditemukan`);
+  logger.debug(`Worker: ${jobsToProcess.length} job pending akan dialokasikan ke GPU`);
 
-  // Proses job secara paralel (maksimal sesuai jumlah GPU yang tersedia)
-  await Promise.all(jobsToProcess.map((job) => processJob(job)));
+  // Proses setiap job secara berurutan agar reservasi in-flight GPU terjadi secara atomik dan adil,
+  // tanpa memblokir worker loop (proses render berjalan di background masing-masing)
+  for (const job of jobsToProcess) {
+    if (activeJobs.has(job.id)) continue;
+    processJob(job).catch((err) => {
+      logger.error(`Unhandled error di processJob ${job.id}:`, err.message);
+    });
+  }
 }
 
 /**
  * Mulai job queue worker.
  * Dipanggil sekali saat server startup.
- * Worker berjalan terus sebagai background process.
+ * Worker berjalan terus sebagai background process dan bertindak sebagai watchdog.
  */
 function startQueueWorker() {
-  logger.info(`Job queue worker dimulai (interval: ${WORKER_INTERVAL_MS / 1000}s)`);
+  logger.info(`Job queue worker dimulai (interval watchdog: ${WORKER_INTERVAL_MS / 1000}s)`);
 
   // Jalankan worker pertama kali setelah 2 detik (beri waktu server siap)
   setTimeout(() => {
-    // Kemudian jalankan setiap WORKER_INTERVAL_MS
+    // Watchdog interval untuk memastikan tidak ada job yang tertinggal
     setInterval(async () => {
       try {
         await runWorkerCycle();
@@ -382,4 +406,6 @@ module.exports = {
   getJobById,
   getQueuePosition,
   startQueueWorker,
+  triggerQueueWorker,
 };
+
