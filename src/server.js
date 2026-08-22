@@ -138,12 +138,13 @@ app.use('/api/admin', adminShield);
 // Admin routes — dilindungi oleh authMiddleware + adminAuthMiddleware
 app.use('/api/admin', adminRoutes);
 
-// ============================================================
-// LANGKAH 5: Serve static files (Frontend)
-// ============================================================
+// Health check endpoint untuk Traefik & Coolify
+app.get('/health', (req, res) => res.status(200).json({ status: 'healthy', uptime: process.uptime() }));
+
 // Root redirect
 app.get('/', (req, res) => res.redirect('/login.html'));
 app.get('/favicon.ico', (req, res) => res.status(204).end());
+
 
 // Serve folder public/ sebagai static files
 app.use(express.static(path.join(__dirname, '..', 'public')));
@@ -227,8 +228,9 @@ async function startServer() {
     await ensureDefaultAdmin();
 
     const PORT = config.port;
-    server = app.listen(PORT, () => {
-      logger.info(`🚀 Server berjalan di http://localhost:${PORT}`);
+    server = app.listen(PORT, '0.0.0.0', () => {
+      logger.info(`🚀 Server berjalan di http://0.0.0.0:${PORT}`);
+
       logger.info(`   Mode: ${config.nodeEnv}`);
       logger.info(`   Admin emails: ${config.adminEmails.join(', ') || '(tidak dikonfigurasi)'}`);
 
