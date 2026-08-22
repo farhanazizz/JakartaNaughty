@@ -114,20 +114,47 @@ async function getQueueLength(comfyUrl, token = '') {
 }
 
 /**
- * Mengecek apakah ComfyUI di sebuah instance bisa diakses.
+ * Mengecek apakah ComfyUI di sebuah instance bisa diakses dan
+ * sudah siap dengan seluruh custom node yang dibutuhkan oleh pipeline kita.
+ *
+ * @param {string} comfyUrl
+ * @param {string} [token='']
+ * @returns {Promise<boolean>}
  */
 async function isAccessible(comfyUrl, token = '') {
   try {
-    const url = token ? `${comfyUrl}/system_stats?token=${token}` : `${comfyUrl}/system_stats`;
-    const res = await fetch(url, {
+    const statsUrl = token ? `${comfyUrl}/system_stats?token=${token}` : `${comfyUrl}/system_stats`;
+    const res = await fetch(statsUrl, {
       headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       timeout: 5000,
     });
-    return res.ok;
+    if (!res.ok) return false;
+
+    // Deep Health Check: Verifikasi apakah custom nodes inti sudah terload di ComfyUI
+    const objUrl = token ? `${comfyUrl}/object_info?token=${token}` : `${comfyUrl}/object_info`;
+    const objRes = await fetch(objUrl, {
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      timeout: 7000,
+    });
+
+    if (!objRes.ok) return false;
+
+    const objInfo = await objRes.json();
+    const hasKreaPatch = Boolean(objInfo['Krea2EditModelPatch']);
+    const hasGrounded  = Boolean(objInfo['Krea2EditGroundedEncode']);
+
+    if (!hasKreaPatch || !hasGrounded) {
+      logger.warn(`GPU @ ${comfyUrl} belum siap (Custom Nodes Krea2Edit belum terpasang: KreaPatch=${hasKreaPatch}, Grounded=${hasGrounded})`);
+      return false;
+    }
+
+    return true;
+
   } catch {
     return false;
   }
 }
+
 
 // -------------------------------------------------------
 // Fungsi Publik
