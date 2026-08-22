@@ -61,9 +61,18 @@ function persistToDisk() {
     const data = rawDb.export();
     fs.writeFileSync(DB_PATH, Buffer.from(data));
   } catch (err) {
-    logger.error('Gagal menyimpan database ke disk:', err.message);
+    logger.error('Gagal menyimpan database ke DB_PATH:', err.message);
+    // Fallback darurat ke root working directory jika lokasi utama gagal izin/akses
+    try {
+      const fallbackPath = path.join(process.cwd(), 'krea2.db');
+      if (DB_PATH !== fallbackPath) {
+        const data = rawDb.export();
+        fs.writeFileSync(fallbackPath, Buffer.from(data));
+      }
+    } catch (_) {}
   }
 }
+
 
 
 /**

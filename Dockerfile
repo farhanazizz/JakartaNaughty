@@ -21,15 +21,11 @@ COPY src/ ./src/
 COPY public/ ./public/
 
 # Buat folder data persisten, uploads, dan outputs
-RUN mkdir -p uploads outputs data && chown -R node:node /app
+RUN mkdir -p uploads outputs data
 
 # Persistent Volume Storage
 VOLUME ["/app/data"]
 ENV DB_PATH=/app/data/krea2.db
-
-# Gunakan non-root user 'node' untuk keamanan
-USER node
-
 
 # Expose port
 EXPOSE 3000
@@ -37,3 +33,4 @@ EXPOSE 3000
 # Jalankan server dengan signal handling
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["node", "src/server.js"]
+
