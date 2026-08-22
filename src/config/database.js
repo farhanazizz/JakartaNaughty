@@ -299,6 +299,18 @@ async function initDb() {
     // Abaikan jika kolom sudah ada
   }
 
+  // Tabel: gpu_settings (Manajemen Status & Mode Armada GPU)
+  dbWrapper.exec(`
+    CREATE TABLE IF NOT EXISTS gpu_settings (
+      gpu_id      TEXT PRIMARY KEY,
+      is_enabled  INTEGER NOT NULL DEFAULT 1,
+      mode        TEXT NOT NULL DEFAULT 'public', -- 'public', 'test_only', 'disabled'
+      label       TEXT,
+      updated_at  TEXT NOT NULL
+    );
+  `);
+
+
 
 
   // Tabel: credit_logs

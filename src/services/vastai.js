@@ -236,12 +236,53 @@ async function refreshGpuPool() {
     });
 
     const results = await Promise.all(poolPromises);
-    gpuPool = [...manualGpus, ...results.filter(Boolean)];
+    const discovered = [...manualGpus, ...results.filter(Boolean)];
+
+    // Sinkronkan status ON / OFF / Mode dari database
+    let settingsMap = new Map();
+    try {
+      const { getDb } = require('../config/database');
+      const db = getDb();
+      const rows = db.prepare('SELECT * FROM gpu_settings').all();
+      rows.forEach((r) => settingsMap.set(String(r.gpu_id), r));
+    } catch (_) {}
+
+    gpuPool = discovered.map((gpu) => {
+      const setting = settingsMap.get(String(gpu.id));
+      let isEnabled = true;
+      let mode = 'public';
+      let label = '';
+
+      if (setting) {
+        isEnabled = setting.is_enabled === 1;
+        mode = setting.mode || (isEnabled ? 'public' : 'disabled');
+        label = setting.label || '';
+      } else {
+        // Daftarkan GPU baru ke database dengan mode default 'public'
+        try {
+          const { getDb } = require('../config/database');
+          const db = getDb();
+          db.prepare(`
+            INSERT OR IGNORE INTO gpu_settings (gpu_id, is_enabled, mode, label, updated_at)
+            VALUES (?, 1, 'public', '', ?)
+          `).run(String(gpu.id), new Date().toISOString());
+        } catch (_) {}
+      }
+
+      return {
+        ...gpu,
+        isEnabled,
+        mode,
+        label,
+      };
+    });
+
     lastRefreshTime = Date.now();
 
-    logger.info(`GPU pool diperbarui: ${gpuPool.length} GPU online`);
+    logger.info(`GPU pool diperbarui: ${gpuPool.length} GPU terdeteksi`);
     gpuPool.forEach((gpu) => {
-      logger.info(`  ⚡ GPU ${gpu.id}: ${gpu.gpuName} @ ${gpu.url} | queue=${gpu.queueLength} | inFlight=${getInFlight(gpu.id)}`);
+      const modeEmoji = gpu.mode === 'public' ? '🟢 Public' : gpu.mode === 'test_only' ? '🟡 Test-Only' : '🔴 Disabled';
+      logger.info(`  ⚡ GPU ${gpu.id}: ${gpu.gpuName} [${modeEmoji}] @ ${gpu.url} | queue=${gpu.queueLength} | inFlight=${getInFlight(gpu.id)}`);
     });
 
   } catch (err) {
@@ -252,9 +293,61 @@ async function refreshGpuPool() {
 }
 
 /**
+ * Mengubah mode operasional GPU (Public, Test-Only, Disabled).
+ *
+ * @param {string} gpuId
+ * @param {Object} options
+ * @param {boolean} [options.isEnabled]
+ * @param {string} [options.mode] - 'public' | 'test_only' | 'disabled'
+ * @param {string} [options.label]
+ */
+function setGpuMode(gpuId, { isEnabled, mode, label }) {
+  const idStr = String(gpuId);
+  const isEn = isEnabled !== undefined ? (isEnabled ? 1 : 0) : (mode === 'public' ? 1 : 0);
+  const targetMode = mode || (isEn ? 'public' : 'disabled');
+  const now = new Date().toISOString();
+
+  try {
+    const { getDb } = require('../config/database');
+    const db = getDb();
+
+    db.prepare(`
+      INSERT INTO gpu_settings (gpu_id, is_enabled, mode, label, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(gpu_id) DO UPDATE SET
+        is_enabled = excluded.is_enabled,
+        mode = excluded.mode,
+        label = COALESCE(excluded.label, gpu_settings.label),
+        updated_at = excluded.updated_at
+    `).run(idStr, isEn, targetMode, label || '', now);
+  } catch (dbErr) {
+    logger.warn('Gagal simpan setGpuMode ke DB:', dbErr.message);
+  }
+
+  // Update memori pool
+  const gpu = gpuPool.find((g) => String(g.id) === idStr);
+  if (gpu) {
+    gpu.isEnabled = isEn === 1;
+    gpu.mode = targetMode;
+    if (label !== undefined) gpu.label = label;
+  }
+
+  logger.info(`[GPU Orchestrator] Status GPU #${idStr} diperbarui -> isEnabled=${isEn === 1}, mode=${targetMode}`);
+  return { success: true, gpuId: idStr, isEnabled: isEn === 1, mode: targetMode };
+}
+
+/**
+ * Mendapatkan satu GPU spesifik berdasarkan ID.
+ * @param {string} gpuId
+ * @returns {Object|null}
+ */
+function getGpuById(gpuId) {
+  return gpuPool.find((g) => String(g.id) === String(gpuId)) || null;
+}
+
+/**
  * Memilih GPU terbaik secara dinamis menggunakan Least-Connection + Round-Robin.
- * Pemilihan dan reservasi in-flight dilakukan secara instan dan sinkron di memori
- * untuk mencegah kondisi balapan asinkron saat banyak user klik bersamaan di detik yang sama.
+ * Hanya memilih GPU yang berstatus ONLINE, ENABLED (ON), dan MODE PUBLIC.
  *
  * @param {Array<string>} [excludeGpuIds=[]] - ID GPU yang dilewati (misal yang baru saja gagal)
  * @returns {Promise<Object|null>} GPU terpilih
@@ -270,16 +363,21 @@ async function pickBestGpu(excludeGpuIds = []) {
     return null;
   }
 
-  // Filter GPU yang online dan bukan GPU yang dikecualikan
+  // Filter GPU yang online, enabled (ON), dan bertipe public traffic
   const excludeSet = new Set((excludeGpuIds || []).map(String));
-  const availableGpus = gpuPool.filter(g => g.status === 'online' && !excludeSet.has(String(g.id)));
+  const availableGpus = gpuPool.filter((g) =>
+    g.status === 'online' &&
+    g.isEnabled !== false &&
+    g.mode === 'public' &&
+    !excludeSet.has(String(g.id))
+  );
 
   if (availableGpus.length === 0) {
-    // Jika semua GPU masuk daftar exclude, fallback ke GPU online mana saja yang ada
-    logger.warn('Semua GPU dalam exclude list, mencoba fallback ke GPU online mana saja...');
-    const anyOnline = gpuPool.filter(g => g.status === 'online');
-    if (anyOnline.length === 0) return null;
-    return pickFromCandidates(anyOnline);
+    // Jika semua GPU public dalam exclude list, coba GPU public online mana saja
+    logger.warn('Semua GPU public dalam exclude list, mencoba fallback ke GPU public online mana saja...');
+    const anyPublicOnline = gpuPool.filter((g) => g.status === 'online' && g.isEnabled !== false && g.mode === 'public');
+    if (anyPublicOnline.length === 0) return null;
+    return pickFromCandidates(anyPublicOnline);
   }
 
   return pickFromCandidates(availableGpus);
@@ -338,10 +436,13 @@ module.exports = {
   pickBestGpu,
   refreshGpuPool,
   getGpuPool,
+  getGpuById,
+  setGpuMode,
   isAccessible,
   getQueueLength,
   incrementInFlight,
   decrementInFlight,
   getInFlight,
 };
+
 
