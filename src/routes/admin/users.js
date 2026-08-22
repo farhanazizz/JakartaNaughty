@@ -3,13 +3,14 @@
  * src/routes/admin/users.js — Admin: Manajemen User (Full-Control)
  * ============================================================
  * Endpoints (semua butuh auth + role admin):
- *   GET    /api/admin/users                  — List semua user + search + pagination
- *   POST   /api/admin/users                  — Buat user baru manual
- *   GET    /api/admin/users/:userId          — Detail lengkap user + 10 job + log kredit
- *   PATCH  /api/admin/users/:userId/status   — Toggle aktif/nonaktif
- *   PATCH  /api/admin/users/:userId/suspend  — Suspend / Unsuspend user
+ *   GET    /api/admin/users                      — List semua user + search + pagination
+ *   POST   /api/admin/users                      — Buat user baru manual
+ *   GET    /api/admin/users/:userId              — Detail lengkap user + 10 job + log kredit
+ *   PATCH  /api/admin/users/:userId/status       — Toggle aktif/nonaktif
+ *   PATCH  /api/admin/users/:userId/suspend      — Suspend / Unsuspend user
  *   POST   /api/admin/users/:userId/reset-password — Reset password user
- *   DELETE /api/admin/users/:userId          — Hapus user (soft delete)
+ *   DELETE /api/admin/users/:userId              — Hapus user (soft delete)
+ *   POST   /api/admin/change-password            — Admin ganti password sendiri
  * ============================================================
  */
 
@@ -18,7 +19,7 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { getDb } = require('../../config/database');
-const { hashPassword } = require('../../utils/hash');
+const { hashPassword, comparePassword } = require('../../utils/hash');
 const { addCredit } = require('../../services/creditService');
 const { logger } = require('../../utils/logger');
 
@@ -346,6 +347,58 @@ router.delete('/:userId', (req, res) => {
   } catch (err) {
     logger.error('Delete user error:', err.message);
     return res.status(500).json({ success: false, message: 'Gagal menghapus user.' });
+  }
+});
+
+// ============================================================
+// POST /api/admin/change-password — Admin Ganti Password Sendiri
+// ============================================================
+router.post('/change-password', async (req, res) => {
+  try {
+    const db = getDb();
+    const adminId = req.user.id;
+    const { current_password, new_password } = req.body;
+
+    // Validasi input
+    if (!current_password || !new_password) {
+      return res.status(400).json({ success: false, message: 'Password saat ini dan password baru wajib diisi.' });
+    }
+    if (typeof new_password !== 'string' || new_password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password baru minimal 6 karakter.' });
+    }
+    if (current_password === new_password) {
+      return res.status(400).json({ success: false, message: 'Password baru tidak boleh sama dengan password saat ini.' });
+    }
+
+    // Ambil data admin dari DB
+    const admin = db.prepare('SELECT id, email, password_hash FROM users WHERE id = ? AND role = ?').get(adminId, 'admin');
+    if (!admin) {
+      return res.status(403).json({ success: false, message: 'Akun admin tidak ditemukan.' });
+    }
+
+    // Verifikasi password saat ini
+    const isMatch = await comparePassword(current_password, admin.password_hash);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: 'Password saat ini salah.' });
+    }
+
+    // Hash password baru dan simpan
+    const newHash = await hashPassword(new_password);
+    db.prepare(`
+      UPDATE users
+      SET password_hash = ?, login_fail_count = 0, locked_until = NULL
+      WHERE id = ?
+    `).run(newHash, adminId);
+
+    // Catat audit log
+    logAudit(adminId, 'CHANGE_OWN_PASSWORD', adminId, { email: admin.email }, req.ip);
+    logger.info(`Admin ${admin.email} berhasil mengganti password sendiri`);
+
+    return res.json({ success: true, message: 'Password berhasil diperbarui.' });
+
+  } catch (err) {
+    logger.error('Change password error:', err.message);
+    return res.status(500).json({ success: false, message: 'Gagal memperbarui password.' });
   }
 });
 

@@ -154,7 +154,7 @@ function getQueuePosition(jobId) {
 async function processJob(job) {
   const db = getDb();
 
-  // Tandai job sedang diproses (mencegah worker lain ambil job yang sama)
+  // Tambahkan ke set activeJobs untuk mencegah double-processing
   activeJobs.add(job.id);
 
   logger.info(`Memproses job: id=${job.id} user=${job.user_id}`);
@@ -180,12 +180,13 @@ async function processJob(job) {
       WHERE id = ?
     `).run(gpu.id, gpu.url, new Date().toISOString(), job.id);
 
-    // 3. Submit job ke ComfyUI
+    // 3. Submit job ke ComfyUI — sertakan token auth dari gpu object
     const { promptId, seed: actualSeed } = await submitJob(gpu.url, {
-      sourceImagePath:  job.source_image_path,
-      positivePrompt:   job.positive_prompt,
-      negativePrompt:   job.negative_prompt,
-      seed:             job.seed,
+      sourceImagePath: job.source_image_path,
+      positivePrompt:  job.positive_prompt,
+      negativePrompt:  job.negative_prompt,
+      seed:            job.seed,
+      token:           gpu.token || '', // ← Sertakan jupyter_token Vast.ai
     });
 
     // 4. Simpan prompt_id dan seed aktual ke database
@@ -195,12 +196,12 @@ async function processJob(job) {
 
     logger.info(`Job ${job.id} berhasil disubmit ke ComfyUI: promptId=${promptId}`);
 
-    // 5. Mulai polling status job
-    await pollUntilDone(job.id, gpu.url, promptId);
+    // 5. Mulai polling status job (sertakan token untuk polling)
+    await pollUntilDone(job.id, gpu.url, promptId, gpu.token || '');
 
   } catch (err) {
-    // Jika ada error saat submit atau proses
-    logger.error(`Job ${job.id} gagal:`, err.message);
+    // Jika ada error saat submit atau proses — refund kredit ke user
+    logger.error(`Job ${job.id} gagal: ${err.message}`);
 
     db.prepare(`
       UPDATE jobs SET
@@ -209,6 +210,15 @@ async function processJob(job) {
         completed_at = ?
       WHERE id = ?
     `).run(err.message, new Date().toISOString(), job.id);
+
+    // Kembalikan kredit yang sudah dipotong agar user tidak rugi
+    try {
+      const { addCredit } = require('../services/creditService');
+      addCredit(job.user_id, job.credits_used || 1, 'Refund otomatis: generate gagal (' + err.message.substring(0, 60) + ')', null);
+      logger.info(`Kredit ${job.credits_used || 1} dikembalikan ke user ${job.user_id} (job ${job.id} gagal)`);
+    } catch (refundErr) {
+      logger.error(`Gagal refund kredit untuk job ${job.id}: ${refundErr.message}`);
+    }
 
   } finally {
     activeJobs.delete(job.id);
@@ -221,9 +231,11 @@ async function processJob(job) {
  * @param {string} jobId      - ID job di database kita
  * @param {string} comfyUrl   - URL ComfyUI instance
  * @param {string} promptId   - Prompt ID dari ComfyUI
+ * @param {string} [token=''] - Token auth Vast.ai
  */
-async function pollUntilDone(jobId, comfyUrl, promptId) {
-  const db = getDb();
+async function pollUntilDone(jobId, comfyUrl, promptId, token) {
+  token = token || '';
+  const db        = getDb();
   const startTime = Date.now();
 
   // Loop polling setiap POLL_INTERVAL_MS
@@ -235,11 +247,24 @@ async function pollUntilDone(jobId, comfyUrl, promptId) {
       `).run('Timeout: job melebihi batas waktu', new Date().toISOString(), jobId);
 
       logger.warn(`Job ${jobId} timeout setelah ${config.jobs.timeoutMinutes} menit`);
+
+      // Refund kredit karena timeout
+      try {
+        const job = db.prepare('SELECT user_id, credits_used FROM jobs WHERE id = ?').get(jobId);
+        if (job) {
+          const { addCredit } = require('../services/creditService');
+          addCredit(job.user_id, job.credits_used || 1, 'Refund otomatis: generate timeout', null);
+          logger.info(`Kredit dikembalikan ke user ${job.user_id} karena timeout job ${jobId}`);
+        }
+      } catch (refundErr) {
+        logger.error(`Gagal refund kredit timeout job ${jobId}: ${refundErr.message}`);
+      }
+
       return;
     }
 
-    // Cek status di ComfyUI
-    const { status, outputFiles, error } = await getJobStatus(comfyUrl, promptId);
+    // Cek status di ComfyUI — sertakan token auth
+    const { status, outputFiles, error } = await getJobStatus(comfyUrl, promptId, token);
 
     if (status === 'done' && outputFiles.length > 0) {
       // Job selesai! Download output
@@ -247,7 +272,8 @@ async function pollUntilDone(jobId, comfyUrl, promptId) {
         const outputFilename = `${jobId}.png`;
         const outputPath = path.join(config.upload.outputDir, outputFilename);
 
-        await downloadOutput(comfyUrl, outputFiles[0], outputPath);
+        // Download dengan token auth
+        await downloadOutput(comfyUrl, outputFiles[0], outputPath, token);
 
         // Update database: selesai
         db.prepare(`
@@ -262,19 +288,46 @@ async function pollUntilDone(jobId, comfyUrl, promptId) {
         return;
 
       } catch (downloadErr) {
+        const errMsg = `Gagal download output: ${downloadErr.message}`;
         db.prepare(`
           UPDATE jobs SET status = 'failed', error_message = ?, completed_at = ? WHERE id = ?
-        `).run(`Gagal download output: ${downloadErr.message}`, new Date().toISOString(), jobId);
+        `).run(errMsg, new Date().toISOString(), jobId);
+
+        // Refund kredit karena download gagal
+        try {
+          const job = db.prepare('SELECT user_id, credits_used FROM jobs WHERE id = ?').get(jobId);
+          if (job) {
+            const { addCredit } = require('../services/creditService');
+            addCredit(job.user_id, job.credits_used || 1, 'Refund otomatis: gagal download hasil generate', null);
+            logger.info(`Kredit dikembalikan ke user ${job.user_id} karena download gagal job ${jobId}`);
+          }
+        } catch (refundErr) {
+          logger.error(`Gagal refund kredit download-fail job ${jobId}: ${refundErr.message}`);
+        }
         return;
       }
     }
 
     if (status === 'failed') {
+      const errMsg = error || 'ComfyUI melaporkan error';
       db.prepare(`
         UPDATE jobs SET status = 'failed', error_message = ?, completed_at = ? WHERE id = ?
-      `).run(error || 'ComfyUI melaporkan error', new Date().toISOString(), jobId);
+      `).run(errMsg, new Date().toISOString(), jobId);
 
-      logger.error(`Job ${jobId} GAGAL di ComfyUI`);
+      logger.error(`Job ${jobId} GAGAL di ComfyUI: ${errMsg}`);
+
+      // Refund kredit karena ComfyUI error
+      try {
+        const job = db.prepare('SELECT user_id, credits_used FROM jobs WHERE id = ?').get(jobId);
+        if (job) {
+          const { addCredit } = require('../services/creditService');
+          addCredit(job.user_id, job.credits_used || 1, 'Refund otomatis: ComfyUI error', null);
+          logger.info(`Kredit dikembalikan ke user ${job.user_id} karena ComfyUI error job ${jobId}`);
+        }
+      } catch (refundErr) {
+        logger.error(`Gagal refund kredit ComfyUI-error job ${jobId}: ${refundErr.message}`);
+      }
+
       return;
     }
 

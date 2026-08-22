@@ -39,6 +39,54 @@ router.use('/credits', creditsRouter);
 router.use('/gpu',     gpuRouter);
 router.use('/history', historyRouter);
 
+// Endpoint ganti password admin sendiri (dipasang di root /api/admin)
+// agar bisa dipanggil via POST /api/admin/change-password
+const { hashPassword, comparePassword } = require('../../utils/hash');
+const { v4: uuidv4 } = require('uuid');
+
+router.post('/change-password', async (req, res) => {
+  try {
+    const db      = require('../../config/database').getDb();
+    const adminId = req.user.id;
+    const { current_password, new_password } = req.body;
+
+    if (!current_password || !new_password) {
+      return res.status(400).json({ success: false, message: 'Password saat ini dan password baru wajib diisi.' });
+    }
+    if (typeof new_password !== 'string' || new_password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password baru minimal 6 karakter.' });
+    }
+    if (current_password === new_password) {
+      return res.status(400).json({ success: false, message: 'Password baru tidak boleh sama dengan password saat ini.' });
+    }
+
+    const admin = db.prepare('SELECT id, email, password_hash FROM users WHERE id = ? AND role = ?').get(adminId, 'admin');
+    if (!admin) {
+      return res.status(403).json({ success: false, message: 'Akun admin tidak ditemukan.' });
+    }
+
+    const isMatch = await comparePassword(current_password, admin.password_hash);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: 'Password saat ini salah.' });
+    }
+
+    const newHash = await hashPassword(new_password);
+    db.prepare('UPDATE users SET password_hash = ?, login_fail_count = 0, locked_until = NULL WHERE id = ?').run(newHash, adminId);
+
+    // Audit log
+    db.prepare('INSERT INTO audit_logs (id, admin_id, action, target_user_id, detail, ip_address, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
+      uuidv4(), adminId, 'CHANGE_OWN_PASSWORD', adminId, JSON.stringify({ email: admin.email }), req.ip, new Date().toISOString()
+    );
+
+    require('../../utils/logger').logger.info('Admin ' + admin.email + ' berhasil mengganti password sendiri');
+    return res.json({ success: true, message: 'Password berhasil diperbarui.' });
+
+  } catch (err) {
+    require('../../utils/logger').logger.error('Change password error:', err.message);
+    return res.status(500).json({ success: false, message: 'Gagal memperbarui password.' });
+  }
+});
+
 // ============================================================
 // GET /api/admin/dashboard — Statistik overview untuk admin
 // ============================================================
