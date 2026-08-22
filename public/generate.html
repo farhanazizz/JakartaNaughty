@@ -171,6 +171,34 @@
             </div>
           </div>
 
+          <!-- Advanced Settings (Collapsible) -->
+          <div class="mb-5 border-t border-slate-800/80 pt-3">
+            <button type="button" onclick="toggleAdvancedSettings()" class="text-xs text-[#FFDADA] hover:text-brand font-semibold flex items-center gap-1.5 transition-colors">
+              <span id="advanced-arrow">▶</span> Pengaturan Lanjutan (Opsional: Negative Prompt & Seed)
+            </button>
+            <div id="advanced-settings-box" class="hidden mt-3 space-y-3.5 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
+              <div>
+                <label for="negative-prompt-input" class="block text-xs font-semibold text-slate-300 mb-1">Negative Prompt (Hindari dalam Foto)</label>
+                <input
+                  type="text"
+                  id="negative-prompt-input"
+                  placeholder="Contoh: blurry, bad quality, distorted, extra limbs, ugly"
+                  class="w-full px-3.5 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand"
+                />
+              </div>
+              <div>
+                <label for="seed-input" class="block text-xs font-semibold text-slate-300 mb-1">Seed (Opsional, -1 untuk Acak)</label>
+                <input
+                  type="number"
+                  id="seed-input"
+                  placeholder="-1"
+                  value="-1"
+                  class="w-full px-3.5 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand"
+                />
+              </div>
+            </div>
+          </div>
+
           <!-- Submit Button -->
           <button
             type="button"
@@ -186,13 +214,14 @@
           </button>
 
           <p class="text-[11px] text-slate-500 text-center mt-3">
-            Setiap proses generate akan menggunakan 1 kredit dari saldo akun Anda.
+            Setiap proses generate akan menggunakan 1 kredit dari saldo akun Anda. Jika proses gagal, kredit Anda akan otomatis dikembalikan.
           </p>
 
         </div>
       </div>
 
       <!-- RIGHT: Result & Status Panel (5 Cols) -->
+
       <div class="lg:col-span-5 space-y-5">
         <div class="glass-card rounded-3xl p-6 shadow-2xl min-h-[420px] flex flex-col justify-between">
 
@@ -334,6 +363,19 @@
       ta.focus();
     }
 
+    function toggleAdvancedSettings() {
+      const box = document.getElementById('advanced-settings-box');
+      const arrow = document.getElementById('advanced-arrow');
+      const isHidden = box.classList.contains('hidden');
+      if (isHidden) {
+        box.classList.remove('hidden');
+        arrow.textContent = '▼';
+      } else {
+        box.classList.add('hidden');
+        arrow.textContent = '▶';
+      }
+    }
+
     // Start Generation
     async function startGenerate() {
       if (!selectedFile) {
@@ -368,6 +410,16 @@
       const formData = new FormData();
       formData.append('source_image', selectedFile);
       formData.append('positive_prompt', prompt);
+
+      const negPrompt = (document.getElementById('negative-prompt-input')?.value || '').trim();
+      if (negPrompt) {
+        formData.append('negative_prompt', negPrompt);
+      }
+
+      const seedVal = parseInt(document.getElementById('seed-input')?.value) || -1;
+      if (seedVal !== -1) {
+        formData.append('seed', String(seedVal));
+      }
 
       try {
         const res = await fetch('/api/generate', {

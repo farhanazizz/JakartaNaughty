@@ -66,8 +66,8 @@ router.get('/:jobId', authMiddleware, (req, res) => {
     return res.status(404).json({ success: false, message: 'Job tidak ditemukan.' });
   }
 
-  // Pastikan job ini milik user yang request (bukan milik orang lain)
-  if (job.user_id !== req.user.id) {
+  // Pastikan job ini milik user yang request atau user adalah admin
+  if (job.user_id !== req.user.id && req.user.role !== 'admin') {
     return res.status(403).json({ success: false, message: 'Akses ditolak.' });
   }
 
@@ -110,13 +110,14 @@ router.get('/:jobId/image', authMiddleware, (req, res) => {
   const db  = getDb();
   const job = db.prepare('SELECT * FROM jobs WHERE id = ?').get(req.params.jobId);
 
-  // Validasi job ada dan milik user ini
+  // Validasi job ada dan milik user ini (atau admin)
   if (!job) {
     return res.status(404).json({ success: false, message: 'Job tidak ditemukan.' });
   }
-  if (job.user_id !== req.user.id) {
+  if (job.user_id !== req.user.id && req.user.role !== 'admin') {
     return res.status(403).json({ success: false, message: 'Akses ditolak.' });
   }
+
   if (job.status !== 'done') {
     return res.status(404).json({ success: false, message: 'Gambar belum siap.' });
   }
