@@ -265,48 +265,143 @@ async function uploadImage(comfyUrl, filePath, token) {
 /**
  * Memodifikasi workflow API format dengan parameter dari user.
  *
- * Node yang dimodifikasi (struktur workflow Krea 2 + Edit Lora):
- *  - Node 224: Krea2EditGroundedEncode (Positive prompt)
- *  - Node 228: Krea2EditGroundedEncode (Negative prompt, collapsed)
- *  - Node 226: PixaromaLoadImageMini   (Source image)
- *  - Node 163: KSampler               (Seed)
+ * Node yang dimodifikasi & diinjeksi (struktur workflow Krea 2 + Edit Lora):
+ *  - Node 231: PixaromaLoraLoader (Wajib memuat LoRA krea2_identity_edit_v1_2.safetensors)
+ *  - Node 232: Krea2EditModelPatch (Injeksi ref_boost: 4.2 & fit_mode: 'fit')
+ *  - Node 234: PixaromaSliders (Injeksi SlidersState ref_boost: 4.2)
+ *  - Node 226: PixaromaLoadImageMini (Source image + 1024x1024 2MP resize state)
+ *  - Node 224: Krea2EditGroundedEncode (Positive prompt + grounding_px: 768)
+ *  - Node 228: Krea2EditGroundedEncode (Negative prompt + grounding_px: 768)
+ *  - Node 163: KSampler (Seed)
  *
  * @param {Object} apiWorkflow    - Workflow API format
  * @param {string} imageFilename  - Nama file gambar di ComfyUI
  * @param {string} positivePrompt - Prompt positif
  * @param {string} negativePrompt - Prompt negatif
  * @param {number} seed           - Seed (-1 = random)
+ * @param {number} [refBoost=4.2] - Reference Boost (default: 4.2)
  * @returns {{ workflow: Object, actualSeed: number }}
  */
-function modifyWorkflow(apiWorkflow, imageFilename, positivePrompt, negativePrompt, seed) {
+function modifyWorkflow(apiWorkflow, imageFilename, positivePrompt, negativePrompt, seed, refBoost = 4.2) {
   const actualSeed = (seed === -1 || seed == null)
     ? Math.floor(Math.random() * 9999999999)
     : seed;
 
+  const actualRefBoost = typeof refBoost === 'number' && refBoost >= 0 ? refBoost : 4.2;
   const nodes = apiWorkflow;
 
-  // Node 224: Positive prompt
-  if (nodes['224'] && nodes['224'].inputs !== undefined) {
-    nodes['224'].inputs.prompt = positivePrompt;
-    logger.debug('Node 224 prompt diset: ' + positivePrompt.substring(0, 50));
+  // --- Node 231: PixaromaLoraLoader (LoRA Identity Edit v1.2) ---
+  if (nodes['231']) {
+    if (!nodes['231'].inputs) nodes['231'].inputs = {};
+    nodes['231'].inputs.LoraLoaderState = JSON.stringify({
+      version: 1,
+      loras: [
+        {
+          id: 'le37e06d8',
+          name: 'krea2_identity_edit_v1_2.safetensors',
+          on: true,
+          sm: 1.0,
+          sc: 1.0,
+          triggers: [],
+          custom: [],
+          at: true,
+        },
+      ],
+      sep: ', ',
+      step: 0.05,
+      defStrength: 1,
+      linkStrength: true,
+      civitai: true,
+      thumbs: true,
+      hideExt: true,
+      accent: null,
+      cacheMode: 'last',
+    });
+    logger.info('Node 231: LoRA krea2_identity_edit_v1_2.safetensors AKTIF (strength: 1.0)');
   }
 
-  // Node 228: Negative prompt
-  if (nodes['228'] && nodes['228'].inputs !== undefined) {
-    nodes['228'].inputs.prompt = negativePrompt || '';
-    logger.debug('Node 228 negative prompt diset');
+  // --- Node 232: Krea2EditModelPatch (Reference Boost Fidelity) ---
+  if (nodes['232']) {
+    if (!nodes['232'].inputs) nodes['232'].inputs = {};
+    nodes['232'].inputs.ref_boost = actualRefBoost;
+    nodes['232'].inputs.ref_boost_a = 1.0;
+    nodes['232'].inputs.fit_mode = 'fit';
+    logger.info(`Node 232: Reference Boost diset ke ${actualRefBoost} (fit_mode: fit)`);
   }
 
-  // Node 226: Source image
-  if (nodes['226'] && nodes['226'].inputs !== undefined) {
+  // --- Node 234: PixaromaSliders (Control Panel) ---
+  if (nodes['234']) {
+    if (!nodes['234'].inputs) nodes['234'].inputs = {};
+    nodes['234'].inputs.SlidersState = JSON.stringify({
+      version: 1,
+      accent: null,
+      sliders: [
+        {
+          name: 'ref boost',
+          type: 'float',
+          min: 0,
+          max: 10,
+          step: 0.1,
+          value: actualRefBoost,
+          autoName: true,
+        },
+      ],
+    });
+  }
+
+  // --- Node 226: PixaromaLoadImageMini (Source image + 1024x1024 2MP) ---
+  if (nodes['226']) {
+    if (!nodes['226'].inputs) nodes['226'].inputs = {};
     nodes['226'].inputs.image = imageFilename;
-    logger.debug('Node 226 image diset: ' + imageFilename);
+    nodes['226'].inputs.LoadImageMiniState = JSON.stringify({
+      version: 1,
+      mode: 'max_mp',
+      max_mp: 2,
+      longest_side: 1024,
+      scale_factor: 1,
+      fit_w: 1024,
+      fit_h: 1024,
+      cover_w: 1024,
+      cover_h: 1024,
+      ratio_preset: '1:1',
+      ratio_w: 1,
+      ratio_h: 1,
+      ratio_action: 'crop',
+      pad_color: '#808080',
+      pad_top: 0,
+      pad_bottom: 0,
+      pad_left: 0,
+      pad_right: 0,
+      crop_anchor: 'center',
+      crop_scale: true,
+      snap: 16,
+      resample: 'auto',
+      allow_upscale: true,
+    });
+    logger.info(`Node 226: Source image diset ke ${imageFilename} (1024x1024 / 2MP)`);
   }
 
-  // Node 163: Seed
-  if (nodes['163'] && nodes['163'].inputs !== undefined) {
+  // --- Node 224: Krea2EditGroundedEncode (Positive prompt & Vision grounding) ---
+  if (nodes['224']) {
+    if (!nodes['224'].inputs) nodes['224'].inputs = {};
+    nodes['224'].inputs.prompt = positivePrompt;
+    nodes['224'].inputs.grounding_px = 768;
+    logger.info(`Node 224: Positive prompt diset (grounding: 768px): ${positivePrompt.substring(0, 50)}...`);
+  }
+
+  // --- Node 228: Krea2EditGroundedEncode (Negative prompt) ---
+  if (nodes['228']) {
+    if (!nodes['228'].inputs) nodes['228'].inputs = {};
+    nodes['228'].inputs.prompt = negativePrompt || '';
+    nodes['228'].inputs.grounding_px = 768;
+    logger.debug('Node 228: Negative prompt diset');
+  }
+
+  // --- Node 163: KSampler (Seed & Step Settings) ---
+  if (nodes['163']) {
+    if (!nodes['163'].inputs) nodes['163'].inputs = {};
     nodes['163'].inputs.seed = actualSeed;
-    logger.debug('Node 163 seed diset: ' + actualSeed);
+    logger.info(`Node 163: Seed diset ke ${actualSeed}`);
   }
 
   return { workflow: nodes, actualSeed };
@@ -321,7 +416,7 @@ function modifyWorkflow(apiWorkflow, imageFilename, positivePrompt, negativeProm
  * Proses:
  *  1. Load workflow dari GPU (fallback lokal)
  *  2. Upload gambar source ke ComfyUI
- *  3. Modifikasi workflow dengan prompt + gambar + seed
+ *  3. Modifikasi workflow dengan LoRA, prompt, gambar, seed, dan ref_boost
  *  4. POST ke /prompt endpoint ComfyUI
  *  5. Return prompt_id untuk tracking
  *
@@ -331,12 +426,13 @@ function modifyWorkflow(apiWorkflow, imageFilename, positivePrompt, negativeProm
  * @param {string} jobParams.positivePrompt   - Prompt positif
  * @param {string} jobParams.negativePrompt   - Prompt negatif
  * @param {number} [jobParams.seed=-1]        - Seed (default: random)
+ * @param {number} [jobParams.refBoost=4.2]   - Reference Boost fidelity (default: 4.2)
  * @param {string} [jobParams.token='']       - Token auth Vast.ai (jupyter_token)
  *
  * @returns {Promise<{promptId: string, seed: number}>}
  * @throws {Error} Jika submit gagal
  */
-async function submitJob(comfyUrl, { sourceImagePath, positivePrompt, negativePrompt, seed = -1, token = '' }) {
+async function submitJob(comfyUrl, { sourceImagePath, positivePrompt, negativePrompt, seed = -1, refBoost = 4.2, token = '' }) {
   // 1. Load workflow dalam API format (GPU atau lokal)
   logger.debug('Memuat workflow untuk GPU: ' + comfyUrl);
   const apiWorkflow = await loadWorkflowApiFormat(comfyUrl, token);
@@ -345,13 +441,14 @@ async function submitJob(comfyUrl, { sourceImagePath, positivePrompt, negativePr
   logger.debug('Mengupload gambar ke ComfyUI: ' + comfyUrl);
   const imageFilename = await uploadImage(comfyUrl, sourceImagePath, token);
 
-  // 3. Modifikasi workflow
+  // 3. Modifikasi workflow dengan parameter lengkap
   const { workflow: modifiedWorkflow, actualSeed } = modifyWorkflow(
     apiWorkflow,
     imageFilename,
     positivePrompt,
     negativePrompt,
-    seed
+    seed,
+    refBoost
   );
 
   // 4. Submit ke ComfyUI /prompt endpoint

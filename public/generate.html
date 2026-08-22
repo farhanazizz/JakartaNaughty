@@ -174,9 +174,35 @@
           <!-- Advanced Settings (Collapsible) -->
           <div class="mb-5 border-t border-slate-800/80 pt-3">
             <button type="button" onclick="toggleAdvancedSettings()" class="text-xs text-[#FFDADA] hover:text-brand font-semibold flex items-center gap-1.5 transition-colors">
-              <span id="advanced-arrow">▶</span> Pengaturan Lanjutan (Opsional: Negative Prompt & Seed)
+              <span id="advanced-arrow">▶</span> Pengaturan Lanjutan (Fidelity Kemiripan, Negative Prompt, Seed)
             </button>
             <div id="advanced-settings-box" class="hidden mt-3 space-y-3.5 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
+              <!-- Ref Boost Slider -->
+              <div>
+                <div class="flex items-center justify-between mb-1.5">
+                  <label for="ref-boost-input" class="block text-xs font-semibold text-slate-300">
+                    Tingkat Kemiripan Objek / Wajah (Reference Boost)
+                  </label>
+                  <span class="text-xs font-bold text-brand font-mono" id="ref-boost-display">4.2</span>
+                </div>
+                <input
+                  type="range"
+                  id="ref-boost-input"
+                  min="1"
+                  max="8"
+                  step="0.1"
+                  value="4.2"
+                  oninput="document.getElementById('ref-boost-display').textContent = this.value"
+                  class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-[#FF788D]"
+                />
+                <div class="flex justify-between text-[10px] text-slate-500 mt-1">
+                  <span>1.0 (Lebih Bebas)</span>
+                  <span class="text-[#FFDADA] font-semibold">4.2 (Default Rekomendasi)</span>
+                  <span>8.0 (Sangat Mirip)</span>
+                </div>
+              </div>
+
+              <!-- Negative Prompt -->
               <div>
                 <label for="negative-prompt-input" class="block text-xs font-semibold text-slate-300 mb-1">Negative Prompt (Hindari dalam Foto)</label>
                 <input
@@ -186,6 +212,8 @@
                   class="w-full px-3.5 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand"
                 />
               </div>
+
+              <!-- Seed -->
               <div>
                 <label for="seed-input" class="block text-xs font-semibold text-slate-300 mb-1">Seed (Opsional, -1 untuk Acak)</label>
                 <input
@@ -198,6 +226,7 @@
               </div>
             </div>
           </div>
+
 
           <!-- Submit Button -->
           <button
@@ -421,8 +450,12 @@
         formData.append('seed', String(seedVal));
       }
 
+      const refBoostVal = parseFloat(document.getElementById('ref-boost-input')?.value) || 4.2;
+      formData.append('ref_boost', String(refBoostVal));
+
       try {
         const res = await fetch('/api/generate', {
+
           method: 'POST',
           credentials: 'include',
           body: formData,

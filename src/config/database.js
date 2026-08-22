@@ -253,6 +253,7 @@ async function initDb() {
       positive_prompt     TEXT NOT NULL,
       negative_prompt     TEXT,
       seed                INTEGER,
+      ref_boost           REAL DEFAULT 4.2,
       steps               INTEGER,
       gpu_instance_id     TEXT,
       gpu_instance_url    TEXT,
@@ -266,6 +267,14 @@ async function initDb() {
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
   `);
+
+  // Migrasi aman untuk database yang sudah ada
+  try {
+    dbWrapper.exec('ALTER TABLE jobs ADD COLUMN ref_boost REAL DEFAULT 4.2;');
+  } catch (_) {
+    // Abaikan jika kolom sudah ada
+  }
+
 
   // Tabel: credit_logs
   dbWrapper.exec(`

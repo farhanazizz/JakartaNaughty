@@ -73,6 +73,7 @@ router.post(
 
       const negativePrompt = (req.body.negative_prompt || '').trim();
       const seed = parseInt(req.body.seed) || -1; // -1 = random
+      const refBoost = parseFloat(req.body.ref_boost) || 4.2; // 4.2 = default fidelity
 
       // -------------------------------------------------------
       // Cek saldo kredit user
@@ -118,8 +119,10 @@ router.post(
           positivePrompt,
           negativePrompt,
           seed,
+          refBoost,
         });
       } catch (enqueueErr) {
+
         // Enqueue gagal — refund kredit agar user tidak rugi
         logger.error(`Enqueue gagal untuk user ${userId}, refund kredit: ${enqueueErr.message}`);
         addCredit(userId, 1, 'Refund: gagal masuk antrian', null);

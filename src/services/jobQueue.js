@@ -77,12 +77,13 @@ function enqueueJob(userId, jobData) {
   // Buat job baru di database
   const jobId = uuidv4();
   const now = new Date().toISOString();
+  const refBoost = jobData.refBoost ?? 4.2;
 
   db.prepare(`
     INSERT INTO jobs (
       id, user_id, status, source_image_name, source_image_path,
-      positive_prompt, negative_prompt, seed, credits_used, created_at
-    ) VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, 1, ?)
+      positive_prompt, negative_prompt, seed, ref_boost, credits_used, created_at
+    ) VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?, 1, ?)
   `).run(
     jobId,
     userId,
@@ -91,8 +92,10 @@ function enqueueJob(userId, jobData) {
     jobData.positivePrompt,
     jobData.negativePrompt || '',
     jobData.seed ?? -1,
+    refBoost,
     now
   );
+
 
   // Hitung posisi dalam antrian
   const position = db.prepare(`
@@ -180,14 +183,16 @@ async function processJob(job) {
       WHERE id = ?
     `).run(gpu.id, gpu.url, new Date().toISOString(), job.id);
 
-    // 3. Submit job ke ComfyUI — sertakan token auth dari gpu object
+    // 3. Submit job ke ComfyUI — sertakan token auth dari gpu object & ref_boost
     const { promptId, seed: actualSeed } = await submitJob(gpu.url, {
       sourceImagePath: job.source_image_path,
       positivePrompt:  job.positive_prompt,
       negativePrompt:  job.negative_prompt,
       seed:            job.seed,
+      refBoost:        job.ref_boost || 4.2,
       token:           gpu.token || '', // ← Sertakan jupyter_token Vast.ai
     });
+
 
     // 4. Simpan prompt_id dan seed aktual ke database
     db.prepare(`
