@@ -80,8 +80,9 @@ app.use(helmet({
   },
 }));
 
-// CORS: hanya allow same-origin (frontend dan backend satu domain)
-app.use(cors({ origin: false }));
+// CORS: izinkan request standard dari frontend/tunnel
+app.use(cors());
+
 
 // --- Middleware Logging ---
 // Morgan format 'combined' mencatat semua request HTTP
