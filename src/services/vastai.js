@@ -17,11 +17,45 @@ const { config } = require('../config/env');
 const { logger } = require('../utils/logger');
 
 // -------------------------------------------------------
-// Cache GPU Pool
+// Cache GPU Pool & In-Flight Tracker
 // -------------------------------------------------------
 let gpuPool = [];
 let lastRefreshTime = 0;
 let isRefreshing = false;
+let roundRobinIndex = 0;
+
+// Melacak jumlah job aktif yang sedang berjalan di tiap GPU secara realtime
+const inFlightByGpu = new Map();
+
+/**
+ * Mendapatkan jumlah job aktif (in-flight) di suatu GPU.
+ * @param {string} gpuId
+ * @returns {number}
+ */
+function getInFlight(gpuId) {
+  return inFlightByGpu.get(String(gpuId)) || 0;
+}
+
+/**
+ * Menambah counter job aktif (in-flight) untuk suatu GPU.
+ * @param {string} gpuId
+ */
+function incrementInFlight(gpuId) {
+  const current = getInFlight(gpuId);
+  inFlightByGpu.set(String(gpuId), current + 1);
+  logger.debug(`GPU ${gpuId} in-flight bertambah -> ${current + 1}`);
+}
+
+/**
+ * Mengurangi counter job aktif (in-flight) untuk suatu GPU.
+ * @param {string} gpuId
+ */
+function decrementInFlight(gpuId) {
+  const current = getInFlight(gpuId);
+  const next = Math.max(0, current - 1);
+  inFlightByGpu.set(String(gpuId), next);
+  logger.debug(`GPU ${gpuId} in-flight berkurang -> ${next}`);
+}
 
 // -------------------------------------------------------
 // Fungsi Internal
@@ -117,6 +151,7 @@ async function refreshGpuPool() {
         url: directUrl,
         token: '',
         queueLength: queueLen,
+        inFlight: getInFlight('manual_gpu'),
         status: accessible ? 'online' : 'offline',
         gpuName: 'Manual ComfyUI Cluster',
       });
@@ -126,9 +161,12 @@ async function refreshGpuPool() {
     let runningInstances = [];
 
     if (apiKey && apiKey !== 'MASUKKAN_API_KEY_VAST_AI_ANDA' && !apiKey.startsWith('mock_')) {
-      const vastUrl = `https://cloud.vast.ai/api/v1/instances/?api_key=${apiKey}`;
+      const vastUrl = `https://console.vast.ai/api/v1/instances/`;
       const res = await fetch(vastUrl, {
-        headers: { 'Accept': 'application/json' },
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
         timeout: 10000,
       });
 
@@ -156,12 +194,14 @@ async function refreshGpuPool() {
       }
 
       const queueLength = await getQueueLength(url, token);
+      const instIdStr = instance.id.toString();
 
       return {
-        id: instance.id.toString(),
+        id: instIdStr,
         url,
         token,
         queueLength,
+        inFlight: getInFlight(instIdStr),
         status: 'online',
         gpuName: instance.gpu_name ? `${instance.gpu_name} (${instance.num_gpus || 1}x)` : 'RTX GPU',
         machineId: instance.machine_id,
@@ -174,7 +214,7 @@ async function refreshGpuPool() {
 
     logger.info(`GPU pool diperbarui: ${gpuPool.length} GPU online`);
     gpuPool.forEach((gpu) => {
-      logger.info(`  ⚡ GPU ${gpu.id}: ${gpu.gpuName} @ ${gpu.url} | antrian=${gpu.queueLength}`);
+      logger.info(`  ⚡ GPU ${gpu.id}: ${gpu.gpuName} @ ${gpu.url} | queue=${gpu.queueLength} | inFlight=${getInFlight(gpu.id)}`);
     });
 
   } catch (err) {
@@ -185,13 +225,18 @@ async function refreshGpuPool() {
 }
 
 /**
- * Memilih GPU terbaik dengan antrian terpendek.
+ * Memilih GPU terbaik secara dinamis menggunakan Least-Connection + Round-Robin.
+ * Mendukung daftar eksklusi GPU jika terjadi failover.
+ *
+ * @param {Array<string>} [excludeGpuIds=[]] - ID GPU yang dilewati (misal yang baru saja gagal)
+ * @returns {Promise<Object|null>} GPU terpilih
  */
-async function pickBestGpu() {
+async function pickBestGpu(excludeGpuIds = []) {
   const now = Date.now();
   const cacheAge = (now - lastRefreshTime) / 1000;
 
-  if (cacheAge > config.vastai.cacheTtlSeconds || gpuPool.length === 0) {
+  // Refresh pool jika cache sudah lebih dari 15 detik atau pool kosong
+  if (cacheAge > 15 || gpuPool.length === 0) {
     await refreshGpuPool();
   }
 
@@ -200,18 +245,76 @@ async function pickBestGpu() {
     return null;
   }
 
-  const best = gpuPool.reduce((prev, curr) =>
-    curr.queueLength < prev.queueLength ? curr : prev
-  );
+  // Filter GPU yang online dan bukan GPU yang dikecualikan
+  const excludeSet = new Set((excludeGpuIds || []).map(String));
+  const availableGpus = gpuPool.filter(g => g.status === 'online' && !excludeSet.has(String(g.id)));
 
-  return best;
+  if (availableGpus.length === 0) {
+    // Jika semua GPU masuk daftar exclude, fallback ke GPU online mana saja yang ada
+    logger.warn('Semua GPU dalam exclude list, mencoba fallback ke GPU online mana saja...');
+    const anyOnline = gpuPool.filter(g => g.status === 'online');
+    if (anyOnline.length === 0) return null;
+    return pickFromCandidates(anyOnline);
+  }
+
+  return pickFromCandidates(availableGpus);
 }
 
 /**
- * Mendapatkan daftar GPU pool yang sedang aktif.
+ * Memilih kandidat GPU terbaik berdasarkan total beban efektif & Round-Robin.
+ * @private
  */
-function getGpuPool() {
-  return gpuPool;
+function pickFromCandidates(candidates) {
+  // Hitung total beban efektif (antrian server + tugas lokal in-flight)
+  const scored = candidates.map(gpu => {
+    const inFlight = getInFlight(gpu.id);
+    const effectiveLoad = (gpu.queueLength === Infinity ? 999 : (gpu.queueLength || 0)) + inFlight;
+    return { gpu, effectiveLoad };
+  });
+
+  // Cari beban terkecil
+  let minLoad = Infinity;
+  for (const item of scored) {
+    if (item.effectiveLoad < minLoad) minLoad = item.effectiveLoad;
+  }
+
+  // Ambil semua GPU yang memiliki beban terkecil (tie)
+  const bestCandidates = scored.filter(item => item.effectiveLoad === minLoad).map(item => item.gpu);
+
+  // Jika ada lebih dari 1 GPU dengan beban sama, gunakan Round-Robin bergantian
+  const chosenIndex = roundRobinIndex % bestCandidates.length;
+  roundRobinIndex++;
+  const chosenGpu = bestCandidates[chosenIndex];
+
+  // Naikkan counter in-flight secara realtime seketika itu juga
+  incrementInFlight(chosenGpu.id);
+
+  logger.info(
+    `[Load Balancer] Dipilih GPU ${chosenGpu.id} (${chosenGpu.gpuName}) | ` +
+    `Queue=${chosenGpu.queueLength}, InFlight=${getInFlight(chosenGpu.id)} | Total Kandidat Online=${candidates.length}`
+  );
+
+  return chosenGpu;
 }
 
-module.exports = { pickBestGpu, refreshGpuPool, getGpuPool, isAccessible, getQueueLength };
+/**
+ * Mendapatkan daftar GPU pool yang sedang aktif beserta in-flight count.
+ */
+function getGpuPool() {
+  return gpuPool.map(g => ({
+    ...g,
+    inFlight: getInFlight(g.id),
+  }));
+}
+
+module.exports = {
+  pickBestGpu,
+  refreshGpuPool,
+  getGpuPool,
+  isAccessible,
+  getQueueLength,
+  incrementInFlight,
+  decrementInFlight,
+  getInFlight,
+};
+

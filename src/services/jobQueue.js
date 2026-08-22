@@ -21,7 +21,7 @@ const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const { getDb } = require('../config/database');
 const { submitJob, getJobStatus, downloadOutput } = require('./comfyui');
-const { pickBestGpu } = require('./vastai');
+const { pickBestGpu, decrementInFlight } = require('./vastai');
 const { config } = require('../config/env');
 const { logger } = require('../utils/logger');
 
@@ -30,13 +30,16 @@ const { logger } = require('../utils/logger');
 // -------------------------------------------------------
 
 /** Interval pengecekan queue (ms) */
-const WORKER_INTERVAL_MS = 5000; // 5 detik
+const WORKER_INTERVAL_MS = 3000; // 3 detik (lebih responsif)
 
 /** Interval polling status job di ComfyUI (ms) */
-const POLL_INTERVAL_MS = 3000; // 3 detik
+const POLL_INTERVAL_MS = 2500; // 2.5 detik
 
 /** Timeout job dalam ms */
 const JOB_TIMEOUT_MS = config.jobs.timeoutMinutes * 60 * 1000;
+
+/** Maksimal percobaan pengalihan ke GPU lain jika terjadi gangguan/disconnect */
+const MAX_FAILOVER_RETRIES = 2;
 
 /** Set job ID yang sedang di-poll (mencegah double processing) */
 const activeJobs = new Set();
@@ -149,64 +152,111 @@ function getQueuePosition(jobId) {
 // -------------------------------------------------------
 
 /**
- * Memproses satu job dari antrian.
- * Dipanggil oleh worker loop.
+ * Memproses satu job dari antrian dengan dukungan Seamless Multi-GPU Auto-Failover.
+ * Jika GPU yang sedang memproses mengalami gangguan (putus jaringan/error),
+ * job akan otomatis dialihkan ke GPU lain yang sehat tanpa user perlu upload ulang.
  *
  * @param {Object} job - Data job dari database
  */
 async function processJob(job) {
   const db = getDb();
-
-  // Tambahkan ke set activeJobs untuk mencegah double-processing
   activeJobs.add(job.id);
+  logger.info(`Memulai pemrosesan job: id=${job.id} user=${job.user_id}`);
 
-  logger.info(`Memproses job: id=${job.id} user=${job.user_id}`);
+  const triedGpuIds = [];
+  let isSuccess = false;
+  let lastError = null;
 
-  try {
-    // 1. Pilih GPU terbaik
-    const gpu = await pickBestGpu();
+  for (let attempt = 0; attempt <= MAX_FAILOVER_RETRIES; attempt++) {
+    let currentGpu = null;
 
-    if (!gpu) {
-      // Tidak ada GPU yang online — biarkan job tetap 'pending'
-      logger.warn(`Job ${job.id}: tidak ada GPU tersedia, tunggu giliran berikutnya`);
-      activeJobs.delete(job.id);
-      return;
+    try {
+      // 1. Pilih GPU terbaik (secara otomatis menghindari GPU yang sudah dicoba dan gagal)
+      currentGpu = await pickBestGpu(triedGpuIds);
+
+      if (!currentGpu) {
+        if (attempt === 0) {
+          logger.warn(`Job ${job.id}: tidak ada GPU tersedia saat ini, tetap pending`);
+          activeJobs.delete(job.id);
+          return;
+        } else {
+          logger.warn(`Job ${job.id}: tidak ada GPU cadangan lain untuk failover attempt ${attempt + 1}`);
+          throw new Error('Tidak ada GPU aktif lain yang tersedia untuk pengalihan');
+        }
+      }
+
+      const isFailover = attempt > 0;
+      if (isFailover) {
+        logger.info(`🔄 [Failover Auto-Retry] Mengalihkan job ${job.id} ke GPU #${currentGpu.id} (${currentGpu.gpuName}) - Percobaan ke-${attempt + 1}`);
+      }
+
+      // 2. Update status ke 'processing' dan catat GPU yang sedang mengerjakan
+      db.prepare(`
+        UPDATE jobs SET
+          status = 'processing',
+          gpu_instance_id = ?,
+          gpu_instance_url = ?,
+          error_message = ?,
+          started_at = COALESCE(started_at, ?)
+        WHERE id = ?
+      `).run(
+        currentGpu.id,
+        currentGpu.url,
+        isFailover ? `Mengalihkan proses ke GPU cadangan (#${currentGpu.id})...` : null,
+        new Date().toISOString(),
+        job.id
+      );
+
+      // 3. Submit job ke ComfyUI pada GPU terpilih
+      const { promptId, seed: actualSeed } = await submitJob(currentGpu.url, {
+        sourceImagePath: job.source_image_path,
+        positivePrompt:  job.positive_prompt,
+        negativePrompt:  job.negative_prompt,
+        seed:            job.seed,
+        refBoost:        job.ref_boost || 4.2,
+        token:           currentGpu.token || '',
+      });
+
+      // 4. Simpan prompt_id dan seed aktual
+      db.prepare(`
+        UPDATE jobs SET comfyui_prompt_id = ?, seed = ? WHERE id = ?
+      `).run(promptId, actualSeed, job.id);
+
+      logger.info(`Job ${job.id} berhasil disubmit ke GPU #${currentGpu.id}: promptId=${promptId}`);
+
+      // 5. Polling status hingga selesai
+      await pollUntilDone(job.id, currentGpu.url, promptId, currentGpu.token || '');
+
+      // Jika berhasil sampai sini tanpa error, tandai sukses dan keluar dari loop retry
+      isSuccess = true;
+      break;
+
+    } catch (err) {
+      lastError = err;
+      logger.warn(`⚠️ Job ${job.id} mengalami kendala di GPU #${currentGpu ? currentGpu.id : 'unknown'} (percobaan ${attempt + 1}/${MAX_FAILOVER_RETRIES + 1}): ${err.message}`);
+
+      if (currentGpu) {
+        triedGpuIds.push(currentGpu.id);
+      }
+
+      if (attempt < MAX_FAILOVER_RETRIES) {
+        logger.info(`🔄 Mempersiapkan pengalihan otomatis (auto-failover) job ${job.id} ke GPU alternatif...`);
+        // Jeda 1.5 detik sebelum mencoba GPU berikutnya
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+      }
+    } finally {
+      if (currentGpu) {
+        decrementInFlight(currentGpu.id);
+      }
     }
+  }
 
-    // 2. Update status ke 'processing' dan catat GPU yang dipakai
-    db.prepare(`
-      UPDATE jobs SET
-        status = 'processing',
-        gpu_instance_id = ?,
-        gpu_instance_url = ?,
-        started_at = ?
-      WHERE id = ?
-    `).run(gpu.id, gpu.url, new Date().toISOString(), job.id);
+  activeJobs.delete(job.id);
 
-    // 3. Submit job ke ComfyUI — sertakan token auth dari gpu object & ref_boost
-    const { promptId, seed: actualSeed } = await submitJob(gpu.url, {
-      sourceImagePath: job.source_image_path,
-      positivePrompt:  job.positive_prompt,
-      negativePrompt:  job.negative_prompt,
-      seed:            job.seed,
-      refBoost:        job.ref_boost || 4.2,
-      token:           gpu.token || '', // ← Sertakan jupyter_token Vast.ai
-    });
-
-
-    // 4. Simpan prompt_id dan seed aktual ke database
-    db.prepare(`
-      UPDATE jobs SET comfyui_prompt_id = ?, seed = ? WHERE id = ?
-    `).run(promptId, actualSeed, job.id);
-
-    logger.info(`Job ${job.id} berhasil disubmit ke ComfyUI: promptId=${promptId}`);
-
-    // 5. Mulai polling status job (sertakan token untuk polling)
-    await pollUntilDone(job.id, gpu.url, promptId, gpu.token || '');
-
-  } catch (err) {
-    // Jika ada error saat submit atau proses — refund kredit ke user
-    logger.error(`Job ${job.id} gagal: ${err.message}`);
+  // Jika seluruh percobaan failover habis dan tetap gagal, barulah tandai failed dan refund kredit
+  if (!isSuccess) {
+    const finalErrMsg = lastError ? lastError.message : 'Gagal memproses gambar setelah beberapa kali pengalihan GPU';
+    logger.error(`❌ Job ${job.id} GAGAL TOTAL setelah failover: ${finalErrMsg}`);
 
     db.prepare(`
       UPDATE jobs SET
@@ -214,24 +264,21 @@ async function processJob(job) {
         error_message = ?,
         completed_at = ?
       WHERE id = ?
-    `).run(err.message, new Date().toISOString(), job.id);
+    `).run(finalErrMsg, new Date().toISOString(), job.id);
 
-    // Kembalikan kredit yang sudah dipotong agar user tidak rugi
     try {
-      const { addCredit } = require('../services/creditService');
-      addCredit(job.user_id, job.credits_used || 1, 'Refund otomatis: generate gagal (' + err.message.substring(0, 60) + ')', null);
-      logger.info(`Kredit ${job.credits_used || 1} dikembalikan ke user ${job.user_id} (job ${job.id} gagal)`);
+      const { addCredit } = require('./creditService');
+      addCredit(job.user_id, job.credits_used || 1, 'Refund otomatis: generate gagal (' + finalErrMsg.substring(0, 60) + ')', null);
+      logger.info(`Kredit ${job.credits_used || 1} dikembalikan ke user ${job.user_id} (job ${job.id} gagal total)`);
     } catch (refundErr) {
       logger.error(`Gagal refund kredit untuk job ${job.id}: ${refundErr.message}`);
     }
-
-  } finally {
-    activeJobs.delete(job.id);
   }
 }
 
 /**
- * Poll status job di ComfyUI sampai selesai atau timeout.
+ * Poll status job di ComfyUI sampai selesai atau error.
+ * Melempar error jika terjadi gangguan agar bisa ditangkap oleh mekanisme Auto-Failover.
  *
  * @param {string} jobId      - ID job di database kita
  * @param {string} comfyUrl   - URL ComfyUI instance
@@ -247,93 +294,35 @@ async function pollUntilDone(jobId, comfyUrl, promptId, token) {
   while (true) {
     // Cek timeout
     if (Date.now() - startTime > JOB_TIMEOUT_MS) {
-      db.prepare(`
-        UPDATE jobs SET status = 'failed', error_message = ?, completed_at = ? WHERE id = ?
-      `).run('Timeout: job melebihi batas waktu', new Date().toISOString(), jobId);
-
-      logger.warn(`Job ${jobId} timeout setelah ${config.jobs.timeoutMinutes} menit`);
-
-      // Refund kredit karena timeout
-      try {
-        const job = db.prepare('SELECT user_id, credits_used FROM jobs WHERE id = ?').get(jobId);
-        if (job) {
-          const { addCredit } = require('../services/creditService');
-          addCredit(job.user_id, job.credits_used || 1, 'Refund otomatis: generate timeout', null);
-          logger.info(`Kredit dikembalikan ke user ${job.user_id} karena timeout job ${jobId}`);
-        }
-      } catch (refundErr) {
-        logger.error(`Gagal refund kredit timeout job ${jobId}: ${refundErr.message}`);
-      }
-
-      return;
+      throw new Error(`Timeout: proses melebihi batas waktu ${config.jobs.timeoutMinutes} menit`);
     }
 
     // Cek status di ComfyUI — sertakan token auth
     const { status, outputFiles, error } = await getJobStatus(comfyUrl, promptId, token);
 
     if (status === 'done' && outputFiles.length > 0) {
-      // Job selesai! Download output
-      try {
-        const outputFilename = `${jobId}.png`;
-        const outputPath = path.join(config.upload.outputDir, outputFilename);
+      // Job selesai! Download output ke disk lokal
+      const outputFilename = `${jobId}.png`;
+      const outputPath = path.join(config.upload.outputDir, outputFilename);
 
-        // Download dengan token auth
-        await downloadOutput(comfyUrl, outputFiles[0], outputPath, token);
+      await downloadOutput(comfyUrl, outputFiles[0], outputPath, token);
 
-        // Update database: selesai
-        db.prepare(`
-          UPDATE jobs SET
-            status = 'done',
-            output_filename = ?,
-            completed_at = ?
-          WHERE id = ?
-        `).run(outputFilename, new Date().toISOString(), jobId);
+      // Update database: selesai dengan sukses
+      db.prepare(`
+        UPDATE jobs SET
+          status = 'done',
+          output_filename = ?,
+          error_message = NULL,
+          completed_at = ?
+        WHERE id = ?
+      `).run(outputFilename, new Date().toISOString(), jobId);
 
-        logger.info(`Job ${jobId} SELESAI: output=${outputFilename}`);
-        return;
-
-      } catch (downloadErr) {
-        const errMsg = `Gagal download output: ${downloadErr.message}`;
-        db.prepare(`
-          UPDATE jobs SET status = 'failed', error_message = ?, completed_at = ? WHERE id = ?
-        `).run(errMsg, new Date().toISOString(), jobId);
-
-        // Refund kredit karena download gagal
-        try {
-          const job = db.prepare('SELECT user_id, credits_used FROM jobs WHERE id = ?').get(jobId);
-          if (job) {
-            const { addCredit } = require('../services/creditService');
-            addCredit(job.user_id, job.credits_used || 1, 'Refund otomatis: gagal download hasil generate', null);
-            logger.info(`Kredit dikembalikan ke user ${job.user_id} karena download gagal job ${jobId}`);
-          }
-        } catch (refundErr) {
-          logger.error(`Gagal refund kredit download-fail job ${jobId}: ${refundErr.message}`);
-        }
-        return;
-      }
+      logger.info(`🎉 Job ${jobId} SELESAI DENGAN SUKSES: output=${outputFilename}`);
+      return true;
     }
 
     if (status === 'failed') {
-      const errMsg = error || 'ComfyUI melaporkan error';
-      db.prepare(`
-        UPDATE jobs SET status = 'failed', error_message = ?, completed_at = ? WHERE id = ?
-      `).run(errMsg, new Date().toISOString(), jobId);
-
-      logger.error(`Job ${jobId} GAGAL di ComfyUI: ${errMsg}`);
-
-      // Refund kredit karena ComfyUI error
-      try {
-        const job = db.prepare('SELECT user_id, credits_used FROM jobs WHERE id = ?').get(jobId);
-        if (job) {
-          const { addCredit } = require('../services/creditService');
-          addCredit(job.user_id, job.credits_used || 1, 'Refund otomatis: ComfyUI error', null);
-          logger.info(`Kredit dikembalikan ke user ${job.user_id} karena ComfyUI error job ${jobId}`);
-        }
-      } catch (refundErr) {
-        logger.error(`Gagal refund kredit ComfyUI-error job ${jobId}: ${refundErr.message}`);
-      }
-
-      return;
+      throw new Error(error || 'ComfyUI melaporkan error pada rendering node');
     }
 
     // Masih pending/processing — tunggu sebentar sebelum poll lagi
