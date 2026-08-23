@@ -22,6 +22,7 @@ const usersRouter   = require('./users').router;
 const creditsRouter = require('./credits');
 const gpuRouter     = require('./gpu');
 const historyRouter = require('./history');
+const systemRouter  = require('./system');
 
 const router = express.Router();
 
@@ -38,6 +39,7 @@ router.use('/users',   usersRouter);
 router.use('/credits', creditsRouter);
 router.use('/gpu',     gpuRouter);
 router.use('/history', historyRouter);
+router.use('/system',  systemRouter);
 
 // Endpoint ganti password admin sendiri (dipasang di root /api/admin)
 // agar bisa dipanggil via POST /api/admin/change-password

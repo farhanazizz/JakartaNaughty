@@ -158,7 +158,23 @@
           <svg class="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
           </svg>
-          GPU Fleet Monitor
+          GPU Serverless Monitor
+        </button>
+
+        <button type="button" onclick="switchTab('system')" id="tab-btn-system"
+          class="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all text-slate-400 hover:text-white hover:bg-slate-800/60 border border-transparent">
+          <svg class="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/>
+          </svg>
+          System & Storage R2
+        </button>
+
+        <button type="button" onclick="switchTab('errors')" id="tab-btn-errors"
+          class="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all text-slate-400 hover:text-white hover:bg-slate-800/60 border border-transparent">
+          <svg class="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+          Failure & Error Logs
         </button>
 
         <button type="button" onclick="switchTab('history')" id="tab-btn-history"
@@ -584,6 +600,193 @@
     </section>
 
     <!-- ======================================================== -->
+    <!-- TAB 6: SYSTEM HEALTH & STORAGE R2 -->
+    <!-- ======================================================== -->
+    <section id="pane-system" class="hidden space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-2xl font-extrabold text-white tracking-tight">System Infrastructure & R2 Storage</h2>
+          <p class="text-xs text-slate-400 mt-1">Live metrics of Cloudflare R2 Object Storage, 3-Day Retention Sweeper, VPS Server resources, and financial ledger.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="triggerR2Cleanup(this)" class="px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 rounded-xl text-xs font-bold border border-amber-500/30 transition-all flex items-center gap-1.5">
+            <span>🧹 Run 3-Day Cleanup Now</span>
+          </button>
+          <button type="button" onclick="loadSystemHealth()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold border border-slate-700 transition-colors flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            Refresh System
+          </button>
+        </div>
+      </div>
+
+      <!-- Cloudflare R2 Storage Card -->
+      <div class="glass-card rounded-3xl p-6 border-l-4 border-l-cyan-500 space-y-5 shadow-2xl">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-2.5">
+              <span id="r2-status-badge" class="px-3 py-1 rounded-full text-xs font-black emerald-badge flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                CLOUDFLARE R2 CDN ACTIVE
+              </span>
+              <span class="px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-slate-800 text-cyan-300 border border-cyan-500/30">
+                S3-Compatible High Speed
+              </span>
+            </div>
+            <h3 class="text-xl font-extrabold text-white mt-2">Bucket: <code id="r2-bucket-name" class="text-cyan-400 font-mono">jakartanaughty</code></h3>
+            <p class="text-xs text-slate-400 mt-0.5">CDN Domain: <a id="r2-public-domain" href="#" target="_blank" class="text-brand hover:underline font-mono">https://pub-d347c89dddda4d359aaf6b53808fc497.r2.dev</a></p>
+          </div>
+          <button type="button" onclick="triggerR2Cleanup(this)" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold border border-slate-600 transition-colors flex items-center gap-2">
+            <span>🗑️ Purge Expired (>3 Days)</span>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+          <div class="p-3.5 bg-slate-900/80 rounded-2xl border border-slate-800">
+            <div class="text-[11px] text-slate-400 font-medium">Active CDN Photos</div>
+            <div class="text-xl font-black text-cyan-400 mt-1" id="r2-active-files">0</div>
+            <div class="text-[10px] text-slate-500 mt-0.5">Available for Download</div>
+          </div>
+          <div class="p-3.5 bg-slate-900/80 rounded-2xl border border-slate-800">
+            <div class="text-[11px] text-slate-400 font-medium">Estimated Storage Size</div>
+            <div class="text-xl font-black text-white mt-1" id="r2-storage-size">0.0 MB</div>
+            <div class="text-[10px] text-slate-500 mt-0.5">Avg ~1.25 MB / photo</div>
+          </div>
+          <div class="p-3.5 bg-slate-900/80 rounded-2xl border border-slate-800">
+            <div class="text-[11px] text-slate-400 font-medium">Purged Expired Photos</div>
+            <div class="text-xl font-black text-amber-400 mt-1" id="r2-expired-cleaned">0</div>
+            <div class="text-[10px] text-slate-500 mt-0.5">Auto-Cleaned by Policy</div>
+          </div>
+          <div class="p-3.5 bg-slate-900/80 rounded-2xl border border-slate-800">
+            <div class="text-[11px] text-slate-400 font-medium">Retention Policy</div>
+            <div class="text-xl font-black text-emerald-400 mt-1">3 Days</div>
+            <div class="text-[10px] text-slate-500 mt-0.5">72 Hours Auto-Sweeper</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Server & Process Health Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Database Health -->
+        <div class="glass-card rounded-2xl p-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-300">🗄️ Database (SQLite WASM)</span>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold emerald-badge">● HEALTHY</span>
+          </div>
+          <div class="space-y-1.5 text-xs text-slate-400">
+            <div class="flex justify-between"><span>DB Size:</span> <strong class="text-white font-mono" id="db-file-size">0 KB</strong></div>
+            <div class="flex justify-between"><span>Total Users:</span> <strong class="text-white" id="db-total-users">0</strong></div>
+            <div class="flex justify-between"><span>Total Generation Jobs:</span> <strong class="text-white" id="db-total-jobs">0</strong></div>
+            <div class="flex justify-between"><span>Ledger Transactions:</span> <strong class="text-white" id="db-total-ledger">0</strong></div>
+          </div>
+        </div>
+
+        <!-- Node.js & VPS Server -->
+        <div class="glass-card rounded-2xl p-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-300">🖥️ VPS Process & Memory</span>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300">● RUNNING</span>
+          </div>
+          <div class="space-y-1.5 text-xs text-slate-400">
+            <div class="flex justify-between"><span>Server Uptime:</span> <strong class="text-white font-mono" id="srv-uptime">0h 0m</strong></div>
+            <div class="flex justify-between"><span>Node.js Version:</span> <strong class="text-white font-mono" id="srv-node-ver">v20</strong></div>
+            <div class="flex justify-between"><span>Heap RAM Used:</span> <strong class="text-emerald-400 font-mono" id="srv-ram-heap">0 MB</strong></div>
+            <div class="flex justify-between"><span>RSS Process RAM:</span> <strong class="text-white font-mono" id="srv-ram-rss">0 MB</strong></div>
+          </div>
+        </div>
+
+        <!-- Financial & Usage Ledger -->
+        <div class="glass-card rounded-2xl p-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-300">💰 Credit Circulation & Cost</span>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-brand/20 text-brand">● FINANCIALS</span>
+          </div>
+          <div class="space-y-1.5 text-xs text-slate-400">
+            <div class="flex justify-between"><span>Circulating Member Credits:</span> <strong class="text-brand font-black" id="fin-circulating-credits">0</strong></div>
+            <div class="flex justify-between"><span>Total Credits Used:</span> <strong class="text-white font-bold" id="fin-credits-used">0</strong></div>
+            <div class="flex justify-between"><span>Est. RunPod Cost:</span> <strong class="text-cyan-400 font-mono" id="fin-runpod-cost">Rp 0</strong></div>
+            <div class="flex justify-between"><span>Per Credit Cost:</span> <strong class="text-slate-300 font-mono">~Rp 105 / credit</strong></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- TAB 7: FAILURE & ERROR DIAGNOSTIC CENTER -->
+    <!-- ======================================================== -->
+    <section id="pane-errors" class="hidden space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-2xl font-extrabold text-white tracking-tight">Failure & Error Diagnostic Center</h2>
+          <p class="text-xs text-slate-400 mt-1">Audit generation failures, error codes, auto-refund verification, and recovery logs.</p>
+        </div>
+        <button type="button" onclick="loadErrorDiagnostics()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold border border-slate-700 transition-colors flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          Refresh Error Logs
+        </button>
+      </div>
+
+      <!-- Success Rate & Metrics Summary -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="glass-card rounded-2xl p-5 flex items-center justify-between">
+          <div>
+            <div class="text-xs text-slate-400 font-medium uppercase">Overall Success Rate</div>
+            <div class="text-3xl font-black text-emerald-400 mt-1" id="diag-success-rate">100.0%</div>
+          </div>
+          <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-2xl">
+            🎯
+          </div>
+        </div>
+        <div class="glass-card rounded-2xl p-5 flex items-center justify-between">
+          <div>
+            <div class="text-xs text-slate-400 font-medium uppercase">Total Successful Renders</div>
+            <div class="text-3xl font-black text-white mt-1" id="diag-total-completed">0</div>
+          </div>
+          <div class="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-2xl">
+            ✅
+          </div>
+        </div>
+        <div class="glass-card rounded-2xl p-5 flex items-center justify-between">
+          <div>
+            <div class="text-xs text-slate-400 font-medium uppercase">Total Failed / Refunded</div>
+            <div class="text-3xl font-black text-red-400 mt-1" id="diag-total-failed">0</div>
+          </div>
+          <div class="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-2xl">
+            🛡️
+          </div>
+        </div>
+      </div>
+
+      <!-- Failure Audit Table -->
+      <div class="glass-card rounded-2xl overflow-hidden shadow-2xl">
+        <div class="p-4 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between">
+          <h3 class="font-bold text-sm text-white">Recent Failure Incidents & Auto-Refunds</h3>
+          <span class="text-xs text-slate-400" id="diag-failure-count">0 incidents</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-900/50 text-slate-400 border-b border-slate-800 uppercase text-[10px]">
+              <tr>
+                <th class="py-3 px-4">Timestamp</th>
+                <th class="py-3 px-4">User</th>
+                <th class="py-3 px-4">Error Code</th>
+                <th class="py-3 px-4">Failure Reason</th>
+                <th class="py-3 px-4">Prompt Attempt</th>
+                <th class="py-3 px-4 text-right">Auto-Refund</th>
+              </tr>
+            </thead>
+            <tbody id="diag-errors-tbody" class="divide-y divide-slate-800/60 text-slate-300">
+              <tr><td colspan="6" class="text-center py-8 text-slate-500">Loading failure diagnostics...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================== -->
     <!-- TAB 6: GENERATION HISTORY -->
     <!-- ======================================================== -->
     <section id="pane-history" class="hidden space-y-6">
@@ -792,7 +995,7 @@
 
     function switchTab(tabId) {
       currentTab = tabId;
-      const tabs = ['overview', 'users', 'credits', 'security', 'gpu', 'history'];
+      const tabs = ['overview', 'users', 'credits', 'security', 'gpu', 'system', 'errors', 'history'];
 
       tabs.forEach(t => {
         const btn = document.getElementById(`tab-btn-${t}`);
@@ -826,6 +1029,8 @@
       if (tabId === 'credits') loadCreditsTable();
       if (tabId === 'security') loadSecurityLogs();
       if (tabId === 'gpu') loadGpuStatus();
+      if (tabId === 'system') loadSystemHealth();
+      if (tabId === 'errors') loadErrorDiagnostics();
       if (tabId === 'history') loadHistoryJobs();
     }
 
@@ -1538,6 +1743,191 @@
       }
     }
 
+    async function loadSystemHealth() {
+      try {
+        const res = await fetch('/api/admin/system/health', { credentials: 'include' });
+        const json = await res.json();
+        if (!json.success || !json.data) return;
+
+        const { storage, database, system, financial } = json.data;
+
+        // R2 Storage
+        const r2Badge = document.getElementById('r2-status-badge');
+        if (r2Badge) {
+          if (storage.r2Active) {
+            r2Badge.className = 'px-3 py-1 rounded-full text-xs font-black emerald-badge flex items-center gap-1.5';
+            r2Badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span> CLOUDFLARE R2 CDN ACTIVE';
+          } else {
+            r2Badge.className = 'px-3 py-1 rounded-full text-xs font-black suspended-badge flex items-center gap-1.5';
+            r2Badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-400"></span> R2 DISCONNECTED';
+          }
+        }
+
+        const bName = document.getElementById('r2-bucket-name');
+        if (bName) bName.textContent = storage.bucketName || 'jakartanaughty';
+
+        const pDom = document.getElementById('r2-public-domain');
+        if (pDom) {
+          pDom.textContent = storage.publicDomain || '';
+          pDom.href = storage.publicDomain || '#';
+        }
+
+        const actFiles = document.getElementById('r2-active-files');
+        if (actFiles) actFiles.textContent = storage.totalActiveFiles || 0;
+
+        const stSize = document.getElementById('r2-storage-size');
+        if (stSize) stSize.textContent = `${storage.estimatedSizeMb || 0} MB`;
+
+        const expCl = document.getElementById('r2-expired-cleaned');
+        if (expCl) expCl.textContent = storage.totalExpiredCleaned || 0;
+
+        // Database
+        const dbSize = document.getElementById('db-file-size');
+        if (dbSize) dbSize.textContent = `${database.fileSizeKb || 0} KB`;
+
+        const dbUsers = document.getElementById('db-total-users');
+        if (dbUsers) dbUsers.textContent = database.totalUsers || 0;
+
+        const dbJobs = document.getElementById('db-total-jobs');
+        if (dbJobs) dbJobs.textContent = database.totalJobs || 0;
+
+        const dbLedger = document.getElementById('db-total-ledger');
+        if (dbLedger) dbLedger.textContent = database.totalLedgerTransactions || 0;
+
+        // System Process
+        const srvUptime = document.getElementById('srv-uptime');
+        if (srvUptime) srvUptime.textContent = system.uptimeFormatted || '0h 0m';
+
+        const srvNode = document.getElementById('srv-node-ver');
+        if (srvNode) srvNode.textContent = `${system.nodeVersion} (${system.platform})`;
+
+        const srvHeap = document.getElementById('srv-ram-heap');
+        if (srvHeap) srvHeap.textContent = `${system.memory?.heapUsedMb || 0} MB`;
+
+        const srvRss = document.getElementById('srv-ram-rss');
+        if (srvRss) srvRss.textContent = `${system.memory?.rssMb || 0} MB`;
+
+        // Financials
+        const finCirc = document.getElementById('fin-circulating-credits');
+        if (finCirc) finCirc.textContent = `${financial.circulatingCredits || 0} credits`;
+
+        const finUsed = document.getElementById('fin-credits-used');
+        if (finUsed) finUsed.textContent = `${financial.totalCreditsUsed || 0} credits`;
+
+        const finCost = document.getElementById('fin-runpod-cost');
+        if (finCost) finCost.textContent = `Rp ${Number(financial.estimatedRunPodCostIdr || 0).toLocaleString('id-ID')}`;
+
+      } catch (err) {
+        showToast('Failed to load system health: ' + err.message, 'error');
+      }
+    }
+
+    async function triggerR2Cleanup(btn) {
+      if (!confirm('Run 3-day storage retention cleanup now? Expired photos older than 72 hours will be purged from Cloudflare R2.')) return;
+      const origHtml = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span>⏳ Cleaning...</span>';
+      }
+
+      try {
+        const res = await fetch('/api/admin/system/cleanup-r2', {
+          method: 'POST',
+          credentials: 'include'
+        });
+        const json = await res.json();
+        if (json.success) {
+          showToast(`✅ Retention Sweeper complete! Cleaned: ${json.totalCleaned} expired photos`, 'success');
+          loadSystemHealth();
+        } else {
+          showToast(json.message || 'Cleanup failed', 'error');
+        }
+      } catch (err) {
+        showToast('Cleanup error: ' + err.message, 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = origHtml;
+        }
+      }
+    }
+
+    async function loadErrorDiagnostics() {
+      try {
+        const res = await fetch('/api/admin/system/errors?limit=50', { credentials: 'include' });
+        const json = await res.json();
+        if (!json.success || !json.data) return;
+
+        const { summary, errors } = json.data;
+
+        const rateEl = document.getElementById('diag-success-rate');
+        if (rateEl) rateEl.textContent = `${summary.successRatePercent || 100}%`;
+
+        const compEl = document.getElementById('diag-total-completed');
+        if (compEl) compEl.textContent = summary.totalCompleted || 0;
+
+        const failEl = document.getElementById('diag-total-failed');
+        if (failEl) failEl.textContent = summary.totalFailed || 0;
+
+        const countEl = document.getElementById('diag-failure-count');
+        if (countEl) countEl.textContent = `${errors.length} incidents`;
+
+        const tbody = document.getElementById('diag-errors-tbody');
+        if (!tbody) return;
+
+        if (errors.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="6" class="text-center py-12 text-slate-500 space-y-2">
+                <div class="text-3xl">🎉</div>
+                <div class="font-bold text-white text-sm">Zero Failure Incidents Recorded</div>
+                <div class="text-xs text-slate-400">All generation jobs have completed smoothly with 100% success.</div>
+              </td>
+            </tr>
+          `;
+          return;
+        }
+
+        tbody.innerHTML = errors.map(e => {
+          const codeColors = {
+            'ERR_TIMEOUT': 'bg-amber-500/20 text-amber-300 border border-amber-500/40',
+            'ERR_WORKER_UNREACHABLE': 'bg-red-500/20 text-red-300 border border-red-500/40',
+            'ERR_COMFY_NODE': 'bg-purple-500/20 text-purple-300 border border-purple-500/40',
+            'ERR_IMAGE_INPUT': 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/40',
+            'ERR_CREDIT_INSUFFICIENT': 'bg-blue-500/20 text-blue-300 border border-blue-500/40',
+            'ERR_GENERAL_FAILURE': 'bg-rose-500/20 text-rose-300 border border-rose-500/40',
+          };
+          const badgeStyle = codeColors[e.errorCode] || 'bg-slate-800 text-slate-300 border border-slate-700';
+
+          return `
+            <tr class="hover:bg-slate-800/40 transition-colors">
+              <td class="py-3 px-4 text-slate-400 whitespace-nowrap">${new Date(e.created_at).toLocaleString('en-US')}</td>
+              <td class="py-3 px-4 font-bold text-white">${escapeHtml(e.user_email || e.user_id)}</td>
+              <td class="py-3 px-4">
+                <span class="px-2 py-0.5 rounded-lg text-[10px] font-black font-mono ${badgeStyle}">
+                  ${e.errorCode}
+                </span>
+              </td>
+              <td class="py-3 px-4 max-w-xs text-slate-300 text-xs break-words font-mono">
+                ${escapeHtml(e.error_message || 'Rendering error')}
+              </td>
+              <td class="py-3 px-4 max-w-xs truncate text-slate-400" title="${escapeHtml(e.positive_prompt)}">
+                ${escapeHtml(e.positive_prompt || '-')}
+              </td>
+              <td class="py-3 px-4 text-right">
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-black emerald-badge">
+                  ✅ Auto-Refunded (${e.credits_used || 1} Cr)
+                </span>
+              </td>
+            </tr>
+          `;
+        }).join('');
+
+      } catch (err) {
+        showToast('Failed to load error diagnostics: ' + err.message, 'error');
+      }
+    }
+
     async function logoutAdmin() {
       if (!confirm('Are you sure you want to sign out from the Admin Panel?')) return;
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
@@ -1570,6 +1960,9 @@
     window.loadSecurityLogs = loadSecurityLogs;
     window.loadGpuStatus = loadGpuStatus;
     window.testServerlessDiagnostic = testServerlessDiagnostic;
+    window.loadSystemHealth = loadSystemHealth;
+    window.triggerR2Cleanup = triggerR2Cleanup;
+    window.loadErrorDiagnostics = loadErrorDiagnostics;
     window.setGpuMode = setGpuMode;
     window.runGpuBenchmark = runGpuBenchmark;
     window.pingSpecificUrl = pingSpecificUrl;
