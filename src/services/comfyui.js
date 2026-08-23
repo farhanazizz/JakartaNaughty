@@ -637,4 +637,4 @@ async function downloadOutput(comfyUrl, fileInfo, outputPath, token) {
   return outputPath;
 }
 
-module.exports = { submitJob, getJobStatus, downloadOutput, loadWorkflowApiFormat };
+module.exports = { submitJob, getJobStatus, downloadOutput, loadWorkflowApiFormat, modifyWorkflow, convertUiToApiFormat };

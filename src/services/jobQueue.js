@@ -22,6 +22,7 @@ const { v4: uuidv4 } = require('uuid');
 const { getDb } = require('../config/database');
 const { submitJob, getJobStatus, downloadOutput } = require('./comfyui');
 const { pickBestGpu, decrementInFlight } = require('./vastai');
+const { submitRunPodJob, getRunPodJobStatus, saveRunPodOutputImage, getEndpointId } = require('./runpod');
 const { uploadToR2, isR2Active, deleteFromR2 } = require('./r2Storage');
 const { config } = require('../config/env');
 const { logger } = require('../utils/logger');
@@ -166,9 +167,9 @@ function getQueuePosition(jobId) {
 // -------------------------------------------------------
 
 /**
- * Memproses satu job dari antrian dengan dukungan Seamless Multi-GPU Auto-Failover.
- * Jika GPU yang sedang memproses mengalami gangguan (putus jaringan/error),
- * job akan otomatis dialihkan ke GPU lain yang sehat tanpa user perlu upload ulang.
+ * Memproses satu job dari antrian.
+ * Menggunakan RunPod Serverless RTX 4090 sebagai backend utama,
+ * dengan fallback ke Vast.ai jika dikonfigurasi.
  *
  * @param {Object} job - Data job dari database
  */
@@ -177,6 +178,69 @@ async function processJob(job) {
   activeJobs.add(job.id);
   logger.info(`Memulai pemrosesan job: id=${job.id} user=${job.user_id}`);
 
+  const isRunPodEnabled = Boolean(config.runpod?.apiKey || process.env.RUNPOD_API_KEY);
+
+  if (isRunPodEnabled) {
+    try {
+      const endpointId = getEndpointId();
+      db.prepare(`
+        UPDATE jobs SET
+          status = 'processing',
+          gpu_instance_id = ?,
+          gpu_instance_url = ?,
+          error_message = NULL,
+          started_at = COALESCE(started_at, ?)
+        WHERE id = ?
+      `).run(
+        `runpod-${endpointId}`,
+        `https://api.runpod.ai/v2/${endpointId}`,
+        new Date().toISOString(),
+        job.id
+      );
+
+      // 1. Submit ke RunPod Serverless
+      const { runpodJobId, actualSeed } = await submitRunPodJob({
+        sourceImagePath: job.source_image_path,
+        positivePrompt:  job.positive_prompt,
+        negativePrompt:  job.negative_prompt,
+        seed:            job.seed,
+        refBoost:        job.ref_boost || 4.2,
+        resolution:      job.resolution || '1mp',
+      });
+
+      db.prepare(`
+        UPDATE jobs SET comfyui_prompt_id = ?, seed = ? WHERE id = ?
+      `).run(runpodJobId, actualSeed, job.id);
+
+      // 2. Polling status RunPod hingga selesai
+      await pollRunPodUntilDone(job.id, runpodJobId);
+      activeJobs.delete(job.id);
+      return;
+
+    } catch (err) {
+      logger.error(`❌ Job ${job.id} mengalami kendala di RunPod Serverless: ${err.message}`);
+      activeJobs.delete(job.id);
+
+      db.prepare(`
+        UPDATE jobs SET
+          status = 'failed',
+          error_message = ?,
+          completed_at = ?
+        WHERE id = ?
+      `).run(err.message, new Date().toISOString(), job.id);
+
+      try {
+        const { addCredit } = require('./creditService');
+        addCredit(job.user_id, job.credits_used || 1, 'Refund otomatis: generate gagal (' + err.message.substring(0, 60) + ')', null);
+        logger.info(`Kredit ${job.credits_used || 1} dikembalikan ke user ${job.user_id} (job ${job.id})`);
+      } catch (refundErr) {
+        logger.error(`Gagal refund kredit untuk job ${job.id}: ${refundErr.message}`);
+      }
+      return;
+    }
+  }
+
+  // Fallback Vast.ai logic
   const triedGpuIds = [];
   let isSuccess = false;
   let lastError = null;
@@ -185,7 +249,6 @@ async function processJob(job) {
     let currentGpu = null;
 
     try {
-      // 1. Pilih GPU terbaik (secara otomatis menghindari GPU yang sudah dicoba dan gagal)
       currentGpu = await pickBestGpu(triedGpuIds);
 
       if (!currentGpu) {
@@ -204,7 +267,6 @@ async function processJob(job) {
         logger.info(`🔄 [Failover Auto-Retry] Mengalihkan job ${job.id} ke GPU #${currentGpu.id} (${currentGpu.gpuName}) - Percobaan ke-${attempt + 1}`);
       }
 
-      // 2. Update status ke 'processing' dan catat GPU yang sedang mengerjakan
       db.prepare(`
         UPDATE jobs SET
           status = 'processing',
@@ -221,7 +283,6 @@ async function processJob(job) {
         job.id
       );
 
-      // 3. Submit job ke ComfyUI pada GPU terpilih
       const { promptId, seed: actualSeed } = await submitJob(currentGpu.url, {
         sourceImagePath: job.source_image_path,
         positivePrompt:  job.positive_prompt,
@@ -232,18 +293,13 @@ async function processJob(job) {
         token:           currentGpu.token || '',
       });
 
-
-      // 4. Simpan prompt_id dan seed aktual
       db.prepare(`
         UPDATE jobs SET comfyui_prompt_id = ?, seed = ? WHERE id = ?
       `).run(promptId, actualSeed, job.id);
 
       logger.info(`Job ${job.id} berhasil disubmit ke GPU #${currentGpu.id}: promptId=${promptId}`);
 
-      // 5. Polling status hingga selesai
       await pollUntilDone(job.id, currentGpu.url, promptId, currentGpu.token || '');
-
-      // Jika berhasil sampai sini tanpa error, tandai sukses dan keluar dari loop retry
       isSuccess = true;
       break;
 
@@ -257,7 +313,6 @@ async function processJob(job) {
 
       if (attempt < MAX_FAILOVER_RETRIES) {
         logger.info(`🔄 Mempersiapkan pengalihan otomatis (auto-failover) job ${job.id} ke GPU alternatif...`);
-        // Jeda 1.5 detik sebelum mencoba GPU berikutnya
         await new Promise((resolve) => setTimeout(resolve, 1500));
       }
     } finally {
@@ -269,7 +324,6 @@ async function processJob(job) {
 
   activeJobs.delete(job.id);
 
-  // Jika seluruh percobaan failover habis dan tetap gagal, barulah tandai failed dan refund kredit
   if (!isSuccess) {
     const finalErrMsg = lastError ? lastError.message : 'Gagal memproses gambar setelah beberapa kali pengalihan GPU';
     logger.error(`❌ Job ${job.id} GAGAL TOTAL setelah failover: ${finalErrMsg}`);
@@ -289,6 +343,70 @@ async function processJob(job) {
     } catch (refundErr) {
       logger.error(`Gagal refund kredit untuk job ${job.id}: ${refundErr.message}`);
     }
+  }
+}
+
+/**
+ * Polling status job di RunPod Serverless hingga selesai atau gagal.
+ *
+ * @param {string} jobId - ID job di SQLite
+ * @param {string} runpodJobId - ID job di RunPod
+ */
+async function pollRunPodUntilDone(jobId, runpodJobId) {
+  const db = getDb();
+  const startTime = Date.now();
+
+  while (true) {
+    const elapsed = Date.now() - startTime;
+    if (elapsed > JOB_TIMEOUT_MS) {
+      throw new Error(`Timeout: proses melebihi batas waktu maksimal (${Math.round(JOB_TIMEOUT_MS / 60000)} menit)`);
+    }
+
+    const { status, output, error } = await getRunPodJobStatus(runpodJobId);
+
+    if (status === 'COMPLETED') {
+      const outputFilename = `${jobId}.png`;
+      const outputPath = path.join(config.upload.outputDir, outputFilename);
+
+      await saveRunPodOutputImage(output, outputPath);
+
+      let finalOutputRef = outputFilename;
+
+      if (isR2Active()) {
+        try {
+          const r2Key = `outputs/${jobId}.png`;
+          const r2Result = await uploadToR2(outputPath, r2Key, 'image/png');
+          finalOutputRef = r2Result.publicUrl;
+
+          try {
+            if (fs.existsSync(outputPath)) {
+              fs.unlinkSync(outputPath);
+            }
+          } catch (_) {}
+        } catch (r2Err) {
+          logger.warn(`Gagal upload ke Cloudflare R2 (${r2Err.message}), fallback ke file lokal.`);
+        }
+      }
+
+      db.prepare(`
+        UPDATE jobs SET
+          status = 'done',
+          output_filename = ?,
+          error_message = NULL,
+          completed_at = ?
+        WHERE id = ?
+      `).run(finalOutputRef, new Date().toISOString(), jobId);
+
+      logger.info(`🎉 Job ${jobId} SELESAI DENGAN SUKSES via RunPod: output=${finalOutputRef}`);
+      return true;
+    }
+
+    if (status === 'FAILED') {
+      const errMsg = error || (output && output.details ? output.details.join(' ') : 'Eksekusi serverless worker gagal');
+      throw new Error(errMsg);
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
   }
 }
 

@@ -303,9 +303,10 @@ async function refreshGpuPool() {
  */
 function setGpuMode(gpuId, { isEnabled, mode, label }) {
   const idStr = String(gpuId);
-  const isEn = isEnabled !== undefined ? (isEnabled ? 1 : 0) : (mode === 'public' ? 1 : 0);
-  const targetMode = mode || (isEn ? 'public' : 'disabled');
+  const targetMode = mode || (isEnabled === false ? 'disabled' : 'public');
+  const isEn = targetMode === 'disabled' ? 0 : 1;
   const now = new Date().toISOString();
+
 
   try {
     const { getDb } = require('../config/database');

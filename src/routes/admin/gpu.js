@@ -13,30 +13,63 @@
 const express = require('express');
 const fetch = require('node-fetch');
 const { refreshGpuPool, getGpuPool } = require('../../services/vastai');
+const { getEndpointHealth, getEndpointId } = require('../../services/runpod');
 const { logger } = require('../../utils/logger');
 
 const router = express.Router();
 
 // ============================================================
-// GET /api/admin/gpu/status — Status GPU pool
+// GET /api/admin/gpu/status — Status RunPod Serverless & GPU pool
 // ============================================================
 router.get('/status', async (req, res) => {
   try {
-    await refreshGpuPool();
+    const serverlessHealth = await getEndpointHealth();
+    await refreshGpuPool().catch(() => {});
     const gpus = getGpuPool();
 
     return res.json({
       success: true,
       data: {
+        serverless: {
+          ...serverlessHealth,
+          gpuModel: 'NVIDIA GeForce RTX 4090 (ADA_24)',
+          datacenter: 'EU-RO-1',
+          networkVolumeId: 'xzwtxegfxu',
+          storageSizeGb: 50,
+          models: [
+            'moodyKrea2Mix_v70BF16.safetensors (24.48 GB)',
+            'qwen3-vl-4b-heretic.safetensors (8.27 GB)',
+            'krea2_identity_edit_v1_2.safetensors (1.70 GB)',
+            'qwen_image_vae.safetensors (0.24 GB)'
+          ]
+        },
         gpus,
-        totalOnline: gpus.filter(g => g.status === 'online').length,
-        totalConfigured: gpus.length,
+        totalOnline: (serverlessHealth.online ? 1 : 0) + gpus.filter(g => g.status === 'online').length,
+        totalConfigured: 1 + gpus.length,
         lastRefreshed: new Date().toISOString(),
       },
     });
   } catch (err) {
     logger.error('GPU status error:', err.message);
     return res.status(500).json({ success: false, message: 'Gagal mengambil status GPU.' });
+  }
+});
+
+// ============================================================
+// POST /api/admin/gpu/serverless/test — Live Health & Diagnostic Test
+// ============================================================
+router.post('/serverless/test', async (req, res) => {
+  try {
+    const health = await getEndpointHealth();
+    return res.json({
+      success: true,
+      data: health,
+      message: health.online
+        ? `RunPod Serverless Endpoint ${health.endpointId} siap (${health.message}).`
+        : `RunPod Serverless tidak merespon: ${health.message}`,
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
   }
 });
 

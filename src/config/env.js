@@ -22,7 +22,7 @@ const REQUIRED_VARS = [
   'JWT_SECRET',
   'JWT_REFRESH_SECRET',
   'SESSION_SECRET',
-  'VASTAI_API_KEY',
+  'RUNPOD_API_KEY',
 ];
 
 /**
@@ -88,7 +88,13 @@ const config = {
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean),
 
-  // Vast.ai
+  // RunPod Serverless
+  runpod: {
+    apiKey: process.env.RUNPOD_API_KEY,
+    endpointId: process.env.RUNPOD_ENDPOINT_ID || 'kwhjwi2di095sq',
+  },
+
+  // Vast.ai (Opsional / Legacy)
   vastai: {
     apiKey: process.env.VASTAI_API_KEY,
     baseUrl: 'https://console.vast.ai/api/v0',
