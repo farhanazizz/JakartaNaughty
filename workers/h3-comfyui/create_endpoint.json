@@ -1,0 +1,55 @@
+{
+  "_comment": "Example REST bodies for RunPod. Do NOT post unless you intend to create billed resources. Replace YOUR_DOCKERHUB_USER and TEMPLATE_ID_FROM_STEP_1.",
+  "create_template": {
+    "method": "POST",
+    "url": "https://rest.runpod.io/v1/templates",
+    "headers": {
+      "Authorization": "Bearer $RUNPOD_API_KEY",
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "name": "h3-comfyui-serverless",
+      "imageName": "YOUR_DOCKERHUB_USER/h3-runpod:5.10.0",
+      "isServerless": true,
+      "category": "NVIDIA",
+      "containerDiskInGb": 40,
+      "volumeMountPath": "/runpod-volume",
+      "env": {
+        "REFRESH_WORKER": "false",
+        "COMFY_LOG_LEVEL": "INFO"
+      },
+      "readme": "H3 ComfyUI serverless worker (worker-comfyui 5.10.0 / ComfyUI 0.34.0). Models on network volume h3-models."
+    }
+  },
+  "create_endpoint": {
+    "method": "POST",
+    "url": "https://rest.runpod.io/v1/endpoints",
+    "headers": {
+      "Authorization": "Bearer $RUNPOD_API_KEY",
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "name": "h3-serverless",
+      "templateId": "TEMPLATE_ID_FROM_STEP_1",
+      "gpuTypeIds": [
+        "NVIDIA GeForce RTX 5090"
+      ],
+      "gpuCount": 1,
+      "workersMin": 0,
+      "workersMax": 2,
+      "idleTimeout": 300,
+      "scalerType": "QUEUE_DELAY",
+      "scalerValue": 4,
+      "networkVolumeId": "yxvhr288kf",
+      "dataCenterIds": [
+        "EU-RO-1"
+      ],
+      "minCudaVersion": "12.8",
+      "flashboot": false
+    }
+  },
+  "curl_examples": {
+    "create_template": "curl -sS -X POST https://rest.runpod.io/v1/templates -H \"Authorization: Bearer $RUNPOD_API_KEY\" -H 'Content-Type: application/json' -d @- <<'JSON'\n{\n  \"name\": \"h3-comfyui-serverless\",\n  \"imageName\": \"YOUR_DOCKERHUB_USER/h3-runpod:5.10.0\",\n  \"isServerless\": true,\n  \"category\": \"NVIDIA\",\n  \"containerDiskInGb\": 40,\n  \"volumeMountPath\": \"/runpod-volume\",\n  \"env\": { \"REFRESH_WORKER\": \"false\", \"COMFY_LOG_LEVEL\": \"INFO\" }\n}\nJSON",
+    "create_endpoint": "curl -sS -X POST https://rest.runpod.io/v1/endpoints -H \"Authorization: Bearer $RUNPOD_API_KEY\" -H 'Content-Type: application/json' -d @- <<'JSON'\n{\n  \"name\": \"h3-serverless\",\n  \"templateId\": \"TEMPLATE_ID_FROM_STEP_1\",\n  \"gpuTypeIds\": [\"NVIDIA GeForce RTX 5090\"],\n  \"gpuCount\": 1,\n  \"workersMin\": 0,\n  \"workersMax\": 2,\n  \"idleTimeout\": 300,\n  \"scalerType\": \"QUEUE_DELAY\",\n  \"scalerValue\": 4,\n  \"networkVolumeId\": \"yxvhr288kf\",\n  \"dataCenterIds\": [\"EU-RO-1\"],\n  \"minCudaVersion\": \"12.8\"\n}\nJSON"
+  }
+}
