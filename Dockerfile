@@ -4,7 +4,7 @@
 FROM node:20-alpine AS base
 
 # Install dumb-init untuk proper signal handling (graceful shutdown)
-RUN apk add --no-cache dumb-init
+RUN apk add --no-cache dumb-init libc6-compat
 
 WORKDIR /app
 
