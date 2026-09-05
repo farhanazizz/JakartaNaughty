@@ -31,3 +31,7 @@ stat -c%s /runpod-volume/models/rife/flownet.pkl  # should match after replace
 ```
 
 Smoke 480P with RIFE ON must pass `RIFEInterpolation` without state_dict size mismatch.
+
+## Image bake detail
+
+Dockerfile downloads `RIFEv4.26_0921.zip` and copies **only** `flownet.pkl` into the image. VFI Python (`RIFE_HDv3.py`) stays from the git pin (relative imports). `start_wrapper.sh` ignores volume flownet if size ≠ 24636301.
