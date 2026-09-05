@@ -261,9 +261,44 @@ async function processVideoJob(job) {
   }
 }
 
+/**
+ * True for transient RunPod status-poll failures (HTTP 5xx, gateway, network).
+ * Matches messages from friendlyRunPodHttpError / getH3JobStatus network errors.
+ */
+function isTransientH3PollError(err) {
+  const msg = String((err && err.message) || err || '').toLowerCase();
+  if (!msg) return false;
+
+  if (msg.includes('could not reach the video service')) return true;
+  if (msg.includes('temporarily unavailable')) return true;
+  if (msg.includes('gateway error')) return true;
+  if (msg.includes('fetch failed') || msg.includes('network error')) return true;
+  if (
+    msg.includes('econnreset') ||
+    msg.includes('etimedout') ||
+    msg.includes('econnrefused') ||
+    msg.includes('socket hang up') ||
+    msg.includes('enotfound') ||
+    msg.includes('und_err')
+  ) {
+    return true;
+  }
+
+  const httpMatch = msg.match(/\(http\s+(\d{3})\)/) || msg.match(/http\s+(\d{3})/);
+  if (httpMatch) {
+    const code = Number(httpMatch[1]);
+    if (code >= 500 && code <= 599) return true;
+  }
+
+  return false;
+}
+
 async function pollH3UntilDone(jobId, runpodJobId) {
   const db = getDb();
   const startTime = Date.now();
+  /** When COMPLETED first arrived with empty output; grace ~60s before hard fail */
+  let emptyOutputSince = null;
+  const EMPTY_OUTPUT_GRACE_MS = 60 * 1000;
 
   while (true) {
     const elapsed = Date.now() - startTime;
@@ -271,9 +306,39 @@ async function pollH3UntilDone(jobId, runpodJobId) {
       throw new Error(`Timeout: video melebihi batas waktu (${Math.round(VIDEO_JOB_TIMEOUT_MS / 60000)} menit)`);
     }
 
-    const { status, output, error } = await getH3JobStatus(runpodJobId);
+    let status;
+    let output;
+    let error;
+    try {
+      ({ status, output, error } = await getH3JobStatus(runpodJobId));
+    } catch (pollErr) {
+      if (isTransientH3PollError(pollErr)) {
+        logger.warn(
+          `[H3 poll] Transient status error for job ${jobId} (runpod=${runpodJobId}): ${pollErr.message} — continuing until timeout`
+        );
+        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+        continue;
+      }
+      throw pollErr;
+    }
 
     if (status === 'COMPLETED') {
+      if (output == null || output === '') {
+        if (emptyOutputSince == null) emptyOutputSince = Date.now();
+        const emptyWait = Date.now() - emptyOutputSince;
+        if (emptyWait < EMPTY_OUTPUT_GRACE_MS) {
+          logger.warn(
+            `[H3 poll] Job ${jobId} COMPLETED but output empty/null — re-polling (${Math.round(emptyWait / 1000)}s / ${EMPTY_OUTPUT_GRACE_MS / 1000}s)`
+          );
+          await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+          continue;
+        }
+        throw new Error(
+          'Video job completed on the worker but output was still empty after waiting. Please try again.'
+        );
+      }
+      emptyOutputSince = null;
+
       const outputFilename = `${jobId}.mp4`;
       const outputPath = path.join(config.upload.outputDir, outputFilename);
       await saveH3OutputVideo(output, outputPath);
@@ -303,6 +368,8 @@ async function pollH3UntilDone(jobId, runpodJobId) {
       logger.info(`🎉 Video job ${jobId} SELESAI: output=${finalOutputRef}`);
       return true;
     }
+
+    emptyOutputSince = null;
 
     if (status === 'FAILED') {
       const errMsg = error || (output && output.details ? output.details.join(' ') : 'H3 serverless worker failed');
