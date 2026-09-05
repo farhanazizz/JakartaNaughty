@@ -304,6 +304,31 @@ async function initDb() {
     // Abaikan jika kolom sudah ada
   }
 
+  try {
+    dbWrapper.exec("ALTER TABLE jobs ADD COLUMN kind TEXT DEFAULT 'image';");
+  } catch (_) {}
+  try {
+    dbWrapper.exec('ALTER TABLE jobs ADD COLUMN duration_seconds INTEGER;');
+  } catch (_) {}
+  try {
+    dbWrapper.exec('ALTER TABLE jobs ADD COLUMN dialog TEXT;');
+  } catch (_) {}
+  try {
+    dbWrapper.exec('ALTER TABLE jobs ADD COLUMN ref_image_paths TEXT;');
+  } catch (_) {}
+
+
+  try {
+    dbWrapper.exec("ALTER TABLE jobs ADD COLUMN job_type TEXT DEFAULT 'photo';");
+  } catch (_) {}
+  try {
+    dbWrapper.exec("ALTER TABLE jobs ADD COLUMN output_mime TEXT DEFAULT 'image/png';");
+  } catch (_) {}
+  try {
+    dbWrapper.exec('ALTER TABLE jobs ADD COLUMN video_meta TEXT;');
+  } catch (_) {}
+
+
   // Tabel: gpu_settings (Manajemen Status & Mode Armada GPU)
   dbWrapper.exec(`
     CREATE TABLE IF NOT EXISTS gpu_settings (

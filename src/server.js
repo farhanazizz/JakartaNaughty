@@ -43,6 +43,9 @@ const { apiLimiter } = require('./middleware/rateLimiter');
 // Routes
 const authRoutes     = require('./routes/auth');
 const generateRoutes = require('./routes/generate');
+const generateVideoRoutes = require('./routes/generateVideo');
+const videoGateRoutes = require('./routes/videoGate');
+const { hasValidVideoGate } = require('./middleware/videoGate');
 const jobsRoutes     = require('./routes/jobs');
 const userRoutes     = require('./routes/user');
 const adminRoutes    = require('./routes/admin/index');
@@ -128,6 +131,9 @@ app.use('/auth', authRoutes);
 
 // User routes — generate, jobs, dashboard
 app.use('/api/generate', generateRoutes);
+app.use('/api/video', generateVideoRoutes);
+app.use('/api/generate-video', generateVideoRoutes); // back-compat
+app.use('/api/video-gate', videoGateRoutes);
 app.use('/api/jobs',     jobsRoutes);
 app.use('/api/user',     userRoutes);
 
@@ -147,8 +153,25 @@ app.get('/', (req, res) => res.redirect('/login.html'));
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 
 
+// AI Video HTML gate — password cookie required (serves unlock page otherwise)
+app.get('/generate-video.html', (req, res) => {
+  const publicDir = path.join(__dirname, '..', 'public');
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-store');
+  if (!hasValidVideoGate(req)) {
+    return res.sendFile(path.join(publicDir, 'video-gate.html'));
+  }
+  return res.sendFile(path.join(publicDir, 'generate-video.html'));
+});
+
 // Serve folder public/ sebagai static files
-app.use(express.static(path.join(__dirname, '..', 'public')));
+app.use(express.static(path.join(__dirname, '..', 'public'), {
+  setHeaders(res, filePath) {
+    if (String(filePath).toLowerCase().endsWith('.html')) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    }
+  },
+}));
 
 // Fallback: request ke /admin/* yang tidak ada → serve 404
 // (Jangan redirect ke index.html karena ini bukan SPA)

@@ -73,4 +73,24 @@ const apiLimiter = rateLimit({
   },
 });
 
-module.exports = { loginLimiter, generateLimiter, apiLimiter };
+
+/**
+ * Rate limiter for AI Video password unlock.
+ * Tight: 5 attempts / 15 minutes / IP (brute-force resistant).
+ */
+const videoGateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    res.status(429).json({
+      success: false,
+      message: 'Too many password attempts. Try again in 15 minutes.',
+    });
+  },
+});
+
+module.exports = {loginLimiter, generateLimiter, apiLimiter,
+  videoGateLimiter,
+};

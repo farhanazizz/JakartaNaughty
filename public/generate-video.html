@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Video - Jakarta Naughty</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { DEFAULT: '#FF788D', dark: '#e0536b', light: '#FFDADA', tint: '#FFF2F2', emerald: '#165823' }
+          },
+          fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; opacity: 0; transition: opacity 0.2s ease-in-out; background-color: #080c14; }
+    body.authorized { opacity: 1; }
+    .glass-card { background: rgba(15, 23, 42, 0.82); backdrop-filter: blur(16px); border: 1px solid rgba(148, 163, 184, 0.12); }
+    .pane-title { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #94a3b8; }
+    .drop-zone { border: 1.5px dashed rgba(255, 120, 141, 0.35); transition: all 0.15s ease; }
+    .drop-zone.dragover { border-color: #FF788D; background: rgba(255, 120, 141, 0.08); }
+    .res-card { transition: all 0.15s ease-in-out; }
+    .res-card.active { border-color: #FF788D; background: rgba(255, 120, 141, 0.12); box-shadow: 0 0 20px -5px rgba(255, 120, 141, 0.3); }
+    input[type=range].dur-range {
+      -webkit-appearance: none; appearance: none; height: 6px; border-radius: 999px;
+      background: #1e293b; outline: none;
+    }
+    input[type=range].dur-range::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%;
+      background: #FF788D; border: 2px solid #fff; cursor: pointer; box-shadow: 0 0 0 4px rgba(255,120,141,0.25);
+    }
+    .playground-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; align-items: start; }
+    @media (min-width: 1024px) {
+      .playground-grid { grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); gap: 1.25rem; }
+      .result-pane-sticky { position: sticky; top: 5.25rem; }
+    }
+    .gen-bar {
+      position: sticky; bottom: 0; z-index: 20;
+      margin: 1rem -1.5rem -1.5rem; padding: 1rem 1.5rem 0;
+      background: linear-gradient(180deg, rgba(15,23,42,0) 0%, rgba(15,23,42,0.92) 35%, rgba(15,23,42,1) 100%);
+      border-top: 1px solid rgba(51,65,85,0.55);
+      padding-top: 1rem;
+    }
+    @media (max-width: 639px) {
+      .gen-bar { margin-left: -1rem; margin-right: -1rem; padding-left: 1rem; padding-right: 1rem; }
+      .drop-zone { min-height: 96px !important; }
+    }
+  </style>
+  <script>
+    (async () => {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        if (!res.ok) throw new Error();
+        const reveal = () => document.body && document.body.classList.add('authorized');
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', reveal);
+        else reveal();
+      } catch { window.location.replace('/login.html'); }
+    })();
+  </script>
+</head>
+<body class="min-h-screen text-slate-100 flex flex-col">
+  <div id="toast-container" class="fixed top-5 right-5 z-[9999] flex flex-col gap-3 pointer-events-none"></div>
+
+  <header class="border-b border-slate-800/80 bg-[#0c121e]/90 backdrop-blur sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 py-3.5 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-[#FF788D] to-[#e0536b] flex items-center justify-center text-white font-black text-base shadow-lg shadow-[#FF788D]/20">JN</div>
+        <a href="/dashboard.html" class="font-extrabold text-white text-base tracking-tight hover:text-brand transition-colors">Jakarta Naughty</a>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="/dashboard.html" class="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 border border-slate-700 transition-colors">Dashboard</a>
+        <a href="/generate.html" class="hidden sm:flex px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 border border-slate-700 transition-colors">Photo</a>
+        <div class="px-3.5 py-1.5 rounded-full bg-[#FF788D]/10 border border-[#FF788D]/30 flex items-center gap-2">
+          <span class="text-xs text-[#FFDADA]">Balance:</span>
+          <span class="text-xs font-black text-brand" id="user-credits-display">0</span>
+          <span class="text-[10px] text-slate-400">credits</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-4 md:p-6">
+    <div class="mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3 text-xs text-amber-200">
+      <span class="text-base shrink-0">&#x26A0;&#xFE0F;</span>
+      <div>
+        <strong class="font-bold text-amber-300">Temporary Cloud Storage Notice:</strong>
+        <p class="mt-0.5 text-amber-200/90 leading-relaxed">Generated videos are stored for <strong>3 days (72 hours)</strong>. Download before expiration. Video jobs can take 5&#x2013;20 minutes.</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2 overflow-x-auto pb-3 text-xs font-semibold mb-4">
+      <a href="/generate.html" class="px-4 py-2 rounded-xl bg-slate-900/60 text-slate-400 border border-slate-800 flex items-center gap-2 shrink-0 hover:border-brand/40 transition-colors">
+        &#x1F4F8; Photo Creator
+      </a>
+      <div class="px-4 py-2 rounded-xl bg-brand/10 text-brand border border-brand/30 flex items-center gap-2 shrink-0">
+        &#x1F3AC; AI Video <span class="text-[9px] px-1.5 py-0.2 bg-brand text-white rounded-full font-bold">ACTIVE</span>
+      </div>
+      <div class="px-4 py-2 rounded-xl bg-slate-900/60 text-slate-500 border border-slate-800 flex items-center gap-2 shrink-0 opacity-60">
+        &#x1F921; Face Swap <span class="text-[9px] text-slate-500">(Coming Soon)</span>
+      </div>
+    </div>
+
+    <div class="mb-6">
+      <h1 class="text-2xl md:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2.5">
+        &#x1F3AC; AI Video (MiniMax-H3)
+      </h1>
+      <p class="text-xs text-slate-400 mt-1">Add 1&#x2013;6 reference photos, write a prompt with [Picture 1]&#x2026;[Picture 6], choose length 5&#x2013;15s</p>
+    </div>
+
+    <div class="playground-grid">
+      <section class="glass-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl flex flex-col">
+          <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-800/80">
+            <h2 class="pane-title">Input</h2>
+            <span class="text-[10px] text-slate-500">Reference to video</span>
+          </div>
+          <div class="space-y-5 flex-1">
+
+          <div class="mb-5">
+            <label class="block text-xs font-bold text-slate-300 mb-2">Reference Images (1&#x2013;6)</label>
+          <p class="text-[10px] text-slate-500 mb-2">Upload 1&#x2013;6 photos. Only the photos you add are used (1 photo = 1 image).</p>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div id="ref-slot-0" class="drop-zone rounded-2xl p-3 text-center cursor-pointer bg-slate-900/60 relative min-h-[100px] sm:min-h-[112px] flex flex-col items-center justify-center" data-slot="0">
+              <input type="file" class="hidden ref-input" accept="image/jpeg,image/png" data-slot="0" />
+              <div class="ref-empty space-y-1">
+                <div class="text-xl opacity-60">+</div>
+                <div class="font-bold text-[11px] text-white">Picture 1</div>
+                <div class="text-[9px] text-slate-500">Subject / face</div>
+              </div>
+              <div class="ref-preview hidden absolute inset-2">
+                <img class="w-full h-full object-cover rounded-xl border border-slate-700" alt="Ref 1" />
+                <button type="button" class="ref-clear absolute top-1 right-1 px-1.5 py-0.5 bg-red-600/80 text-white rounded text-[10px] font-bold">X</button>
+              </div>
+            </div>
+            <div id="ref-slot-1" class="drop-zone rounded-2xl p-3 text-center cursor-pointer bg-slate-900/60 relative min-h-[100px] sm:min-h-[112px] flex flex-col items-center justify-center" data-slot="1">
+              <input type="file" class="hidden ref-input" accept="image/jpeg,image/png" data-slot="1" />
+              <div class="ref-empty space-y-1">
+                <div class="text-xl opacity-60">+</div>
+                <div class="font-bold text-[11px] text-white">Picture 2</div>
+                <div class="text-[9px] text-slate-500">Scene / body (optional)</div>
+              </div>
+              <div class="ref-preview hidden absolute inset-2">
+                <img class="w-full h-full object-cover rounded-xl border border-slate-700" alt="Ref 2" />
+                <button type="button" class="ref-clear absolute top-1 right-1 px-1.5 py-0.5 bg-red-600/80 text-white rounded text-[10px] font-bold">X</button>
+              </div>
+            </div>
+            <div id="ref-slot-2" class="drop-zone rounded-2xl p-3 text-center cursor-pointer bg-slate-900/60 relative min-h-[100px] sm:min-h-[112px] flex flex-col items-center justify-center" data-slot="2">
+              <input type="file" class="hidden ref-input" accept="image/jpeg,image/png" data-slot="2" />
+              <div class="ref-empty space-y-1">
+                <div class="text-xl opacity-60">+</div>
+                <div class="font-bold text-[11px] text-white">Picture 3</div>
+                <div class="text-[9px] text-slate-500">Extra (optional)</div>
+              </div>
+              <div class="ref-preview hidden absolute inset-2">
+                <img class="w-full h-full object-cover rounded-xl border border-slate-700" alt="Ref 3" />
+                <button type="button" class="ref-clear absolute top-1 right-1 px-1.5 py-0.5 bg-red-600/80 text-white rounded text-[10px] font-bold">X</button>
+              </div>
+            </div>
+            <div id="ref-slot-3" class="drop-zone rounded-2xl p-3 text-center cursor-pointer bg-slate-900/60 relative min-h-[100px] sm:min-h-[112px] flex flex-col items-center justify-center" data-slot="3">
+              <input type="file" class="hidden ref-input" accept="image/jpeg,image/png" data-slot="3" />
+              <div class="ref-empty space-y-1">
+                <div class="text-xl opacity-60">+</div>
+                <div class="font-bold text-[11px] text-white">Picture 4</div>
+                <div class="text-[9px] text-slate-500">Extra (optional)</div>
+              </div>
+              <div class="ref-preview hidden absolute inset-2">
+                <img class="w-full h-full object-cover rounded-xl border border-slate-700" alt="Ref 4" />
+                <button type="button" class="ref-clear absolute top-1 right-1 px-1.5 py-0.5 bg-red-600/80 text-white rounded text-[10px] font-bold">X</button>
+              </div>
+            </div>
+            <div id="ref-slot-4" class="drop-zone rounded-2xl p-3 text-center cursor-pointer bg-slate-900/60 relative min-h-[100px] sm:min-h-[112px] flex flex-col items-center justify-center" data-slot="4">
+              <input type="file" class="hidden ref-input" accept="image/jpeg,image/png" data-slot="4" />
+              <div class="ref-empty space-y-1">
+                <div class="text-xl opacity-60">+</div>
+                <div class="font-bold text-[11px] text-white">Picture 5</div>
+                <div class="text-[9px] text-slate-500">Extra (optional)</div>
+              </div>
+              <div class="ref-preview hidden absolute inset-2">
+                <img class="w-full h-full object-cover rounded-xl border border-slate-700" alt="Ref 5" />
+                <button type="button" class="ref-clear absolute top-1 right-1 px-1.5 py-0.5 bg-red-600/80 text-white rounded text-[10px] font-bold">X</button>
+              </div>
+            </div>
+            <div id="ref-slot-5" class="drop-zone rounded-2xl p-3 text-center cursor-pointer bg-slate-900/60 relative min-h-[100px] sm:min-h-[112px] flex flex-col items-center justify-center" data-slot="5">
+              <input type="file" class="hidden ref-input" accept="image/jpeg,image/png" data-slot="5" />
+              <div class="ref-empty space-y-1">
+                <div class="text-xl opacity-60">+</div>
+                <div class="font-bold text-[11px] text-white">Picture 6</div>
+                <div class="text-[9px] text-slate-500">Extra (optional)</div>
+              </div>
+              <div class="ref-preview hidden absolute inset-2">
+                <img class="w-full h-full object-cover rounded-xl border border-slate-700" alt="Ref 6" />
+                <button type="button" class="ref-clear absolute top-1 right-1 px-1.5 py-0.5 bg-red-600/80 text-white rounded text-[10px] font-bold">X</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-5">
+            <label class="block text-xs font-bold text-slate-300 mb-2">Resolution</label>
+            <div class="grid grid-cols-2 gap-2.5">
+              <div id="res-card-480" onclick="selectScale(1)" class="res-card active p-4 rounded-2xl border border-slate-700/80 bg-slate-900/60 cursor-pointer flex items-center justify-between">
+                <span class="font-extrabold text-xs text-white flex items-center gap-2"><span id="check-480" class="text-brand">&#x2713;</span> 480P (faster)</span>
+                <span id="badge-480" class="px-3 py-1 rounded-full bg-slate-800 text-[#FFDADA] text-xs font-bold border border-slate-700">from 3 cr</span>
+              </div>
+              <div id="res-card-960" onclick="selectScale(2)" class="res-card p-4 rounded-2xl border border-slate-700/80 bg-slate-900/60 cursor-pointer flex items-center justify-between">
+                <span class="font-extrabold text-xs text-white flex items-center gap-2"><span id="check-960" class="text-slate-600">&#x25CB;</span> 960P (sharper)</span>
+                <span id="badge-960" class="px-3 py-1 rounded-full bg-brand/20 text-brand text-xs font-bold border border-brand/30">from 6 cr</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-5">
+            <div class="flex items-center justify-between mb-2">
+              <label for="duration-slider" class="block text-xs font-bold text-slate-300">Duration</label>
+              <span class="text-[11px] font-bold text-brand"><span id="duration-display">5</span>s</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <input id="duration-slider" class="dur-range flex-1" type="range" min="5" max="15" step="1" value="5" oninput="onDurationInput(this.value)" />
+              <input id="duration-number" type="number" min="5" max="15" step="1" value="5" class="w-16 px-2 py-2 rounded-xl border border-slate-700 bg-slate-900/90 text-xs text-white text-center font-bold focus:outline-none focus:border-brand" onchange="onDurationInput(this.value)" oninput="onDurationInput(this.value)" />
+            </div>
+            <p class="text-[10px] text-slate-500 mt-2">5&#x2013;15 seconds — drag the slider or type any whole number.</p>
+          </div>
+
+          <div class="mb-5">
+            <div class="flex items-center justify-between mb-2">
+              <label for="prompt-input" class="block text-xs font-bold text-slate-300">Prompt</label>
+              <span class="text-[10px] text-slate-500">[Picture 1]&#x2026;[Picture 6]</span>
+            </div>
+            <textarea id="prompt-input" rows="5" placeholder="e.g. [Picture 1] woman walks into [Picture 2] living room. Soft daylight. She smiles and says: &quot;Hello.&quot;" class="w-full px-4 py-3 bg-slate-900/90 border border-slate-700 rounded-2xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand leading-relaxed"></textarea>
+          </div>
+
+          </div>
+          <div class="gen-bar">
+          <button type="button" id="btn-generate" onclick="startVideoGenerate()" class="w-full py-3.5 bg-gradient-to-r from-[#FF788D] to-[#e0536b] hover:opacity-95 text-white font-extrabold rounded-2xl transition-all shadow-xl shadow-[#FF788D]/25 flex items-center justify-center gap-2.5 text-sm">
+            <span id="btn-generate-text">&#x1F3AC; Generate Video (5 Credits)</span>
+            <svg id="btn-generate-spinner" class="hidden w-4 h-4 animate-spin text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+          </button>
+          <p class="text-[11px] text-slate-500 text-center mt-2" id="cost-hint-text">Credits depend on length and quality. Unused credits are refunded if it fails.</p>
+          </div>
+        </section>
+
+        <section class="glass-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl min-h-[360px] sm:min-h-[440px] flex flex-col result-pane-sticky">
+          <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-800/80">
+            <h2 class="pane-title flex items-center gap-2">Result <span id="job-status-badge" class="hidden"></span></h2>
+            <span class="text-[10px] px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-slate-500">Preview</span>
+          </div>
+
+          <div class="flex-1 flex flex-col justify-center">
+            <div id="result-placeholder" class="border border-slate-800 rounded-2xl p-8 sm:p-10 text-center bg-slate-900/40">
+              <div class="text-4xl mb-3">&#x1F3A5;</div>
+              <div class="font-bold text-xs text-slate-300">Video Will Appear Here</div>
+              <div class="text-[11px] text-slate-500 mt-1">This usually takes a few minutes.</div>
+            </div>
+            <div id="result-processing" class="hidden border border-brand/30 rounded-2xl p-8 text-center bg-brand/5 space-y-3">
+              <div class="w-12 h-12 rounded-2xl bg-brand/20 text-brand flex items-center justify-center mx-auto text-2xl animate-pulse">&#x23F3;</div>
+              <div>
+                <div class="font-bold text-sm text-white" id="processing-title">Please wait...</div>
+                <div class="text-xs text-brand font-semibold mt-1" id="processing-desc">Hang tight — this can take several minutes.</div>
+              </div>
+            </div>
+            <div id="result-completed" class="hidden my-2 space-y-4">
+              <div class="rounded-2xl overflow-hidden border border-slate-700 shadow-2xl relative group bg-black">
+                <video id="result-video" class="w-full max-h-[min(52vh,420px)] mx-auto" controls playsinline preload="metadata">
+                  <source id="result-video-source" src="" type="video/mp4" />
+                </video>
+              </div>
+              <p id="playback-error" class="hidden text-[11px] text-red-300 text-center"></p>
+            </div>
+          </div>
+
+          <div id="result-action-box" class="hidden pt-4 mt-4 border-t border-slate-800">
+            <a id="btn-download-result" href="#" target="_blank" download="jakarta_naughty_video.mp4" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 border border-slate-700 transition-colors shadow">&#x2B07;&#xFE0F; Download MP4</a>
+          </div>
+        </section>
+      </div>
+  </main>
+
+  <script>
+    let userCredits = 0;
+    let selectedScale = 1;
+    let selectedDuration = 5;
+    let refFiles = [null, null, null, null, null, null];
+    let pollingInterval = null;
+    let activeJobId = null;
+
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      const bg = type === 'success' ? 'bg-[#165823] text-emerald-100 border border-emerald-500/40'
+        : type === 'error' ? 'bg-red-950 text-red-100 border border-red-500/40'
+        : 'bg-slate-900 text-brand-light border border-brand/30';
+      toast.className = 'px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold pointer-events-auto flex items-center gap-2.5 ' + bg;
+      toast.innerHTML = '<span>' + (type === 'success' ? 'OK' : type === 'error' ? 'ERR' : 'i') + '</span><span></span>';
+      toast.lastChild.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 4500);
+    }
+
+    // Credits: 480P = max(3, durationSec); 960P = max(6, durationSec * 2)
+    function creditsNeeded() {
+      const d = Math.max(5, Math.min(15, parseInt(selectedDuration, 10) || 5));
+      if (selectedScale === 2) return Math.max(6, d * 2);
+      return Math.max(3, d);
+    }
+
+    function updateCostUI() {
+      const c = creditsNeeded();
+      const d = selectedDuration;
+      document.getElementById('btn-generate-text').textContent =
+        String.fromCodePoint(0x1F3AC) + ' Generate Video (' + c + ' Credits)';
+      document.getElementById('badge-480').textContent = Math.max(3, d) + ' cr @ ' + d + 's';
+      document.getElementById('badge-960').textContent = Math.max(6, d * 2) + ' cr @ ' + d + 's';
+      const times = String.fromCharCode(0x00D7);
+      document.getElementById('cost-hint-text').textContent =
+        'This run: ' + c + ' credits · ' + d + 's · ' + (selectedScale === 2 ? '960P' : '480P') + '. If it fails, credits come back.';
+    }
+
+    function selectScale(scale) {
+      selectedScale = scale;
+      const c480 = document.getElementById('res-card-480');
+      const c960 = document.getElementById('res-card-960');
+      const k480 = document.getElementById('check-480');
+      const k960 = document.getElementById('check-960');
+      if (scale === 2) {
+        c480.classList.remove('active'); c960.classList.add('active');
+      } else {
+        c960.classList.remove('active'); c480.classList.add('active');
+      }
+      k480.textContent = scale === 2 ? String.fromCharCode(0x25CB) : String.fromCharCode(0x2713);
+      k960.textContent = scale === 2 ? String.fromCharCode(0x2713) : String.fromCharCode(0x25CB);
+      k480.className = scale === 2 ? 'text-slate-600' : 'text-brand';
+      k960.className = scale === 2 ? 'text-brand' : 'text-slate-600';
+      updateCostUI();
+    }
+
+    function clampDuration(v) {
+      const n = parseInt(v, 10);
+      if (!Number.isFinite(n)) return 5;
+      return Math.max(5, Math.min(15, n));
+    }
+
+    function onDurationInput(v) {
+      selectDuration(clampDuration(v));
+    }
+
+    function selectDuration(d) {
+      selectedDuration = clampDuration(d);
+      const slider = document.getElementById('duration-slider');
+      const num = document.getElementById('duration-number');
+      const disp = document.getElementById('duration-display');
+      if (slider) slider.value = String(selectedDuration);
+      if (num) num.value = String(selectedDuration);
+      if (disp) disp.textContent = String(selectedDuration);
+      
+      updateCostUI();
+    }
+
+    async function syncUserCredits() {
+      try {
+        const res = await fetch('/api/auth/me?t=' + Date.now(), { credentials: 'include', cache: 'no-store' });
+        if (!res.ok) { window.location.href = '/login.html'; return; }
+        const d = await res.json();
+        userCredits = d.data.credits ?? 0;
+        document.getElementById('user-credits-display').textContent = userCredits;
+      } catch (_) {}
+    }
+    syncUserCredits();
+    window.addEventListener('focus', syncUserCredits);
+    selectDuration(5);
+    selectScale(1);
+
+    document.querySelectorAll('[data-slot]').forEach((slot) => {
+      if (!slot.id || !slot.id.startsWith('ref-slot-')) return;
+      const idx = Number(slot.dataset.slot);
+      const input = slot.querySelector('.ref-input');
+      slot.addEventListener('click', (e) => {
+        if (e.target.classList.contains('ref-clear')) return;
+        input.click();
+      });
+      slot.addEventListener('dragover', (e) => { e.preventDefault(); slot.classList.add('dragover'); });
+      slot.addEventListener('dragleave', () => slot.classList.remove('dragover'));
+      slot.addEventListener('drop', (e) => {
+        e.preventDefault(); slot.classList.remove('dragover');
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) setRefFile(idx, e.dataTransfer.files[0]);
+      });
+      input.addEventListener('change', () => { if (input.files && input.files[0]) setRefFile(idx, input.files[0]); });
+      slot.querySelector('.ref-clear').addEventListener('click', (e) => {
+        e.stopPropagation();
+        refFiles[idx] = null;
+        input.value = '';
+        slot.querySelector('.ref-empty').classList.remove('hidden');
+        slot.querySelector('.ref-preview').classList.add('hidden');
+      });
+    });
+
+    function setRefFile(idx, file) {
+      if (!['image/jpeg', 'image/png'].includes(file.type)) {
+        showToast('Only JPEG/PNG allowed.', 'error'); return;
+      }
+      if (file.size > 10 * 1024 * 1024) { showToast('Max 10MB per image.', 'error'); return; }
+      refFiles[idx] = file;
+      const slot = document.getElementById('ref-slot-' + idx);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        slot.querySelector('.ref-preview img').src = e.target.result;
+        slot.querySelector('.ref-empty').classList.add('hidden');
+        slot.querySelector('.ref-preview').classList.remove('hidden');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function setProcessing(title, desc) {
+      document.getElementById('result-placeholder').classList.add('hidden');
+      document.getElementById('result-completed').classList.add('hidden');
+      document.getElementById('result-action-box').classList.add('hidden');
+      document.getElementById('result-processing').classList.remove('hidden');
+      document.getElementById('processing-title').textContent = title;
+      document.getElementById('processing-desc').textContent = desc;
+      const badge = document.getElementById('job-status-badge');
+      badge.classList.remove('hidden');
+      badge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-brand/20 text-brand border border-brand/40';
+      badge.textContent = 'PROCESSING';
+    }
+
+    function setCompleted(url, fallbackUrl) {
+      document.getElementById('result-processing').classList.add('hidden');
+      document.getElementById('result-placeholder').classList.add('hidden');
+      document.getElementById('result-completed').classList.remove('hidden');
+      document.getElementById('result-action-box').classList.remove('hidden');
+      const errEl = document.getElementById('playback-error');
+      errEl.classList.add('hidden');
+      errEl.textContent = '';
+
+      let playUrl = url || fallbackUrl || '';
+      if (!playUrl && activeJobId) playUrl = '/api/jobs/' + activeJobId + '/video';
+      if (!playUrl) {
+        errEl.textContent = 'No playable video URL returned.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+
+      const video = document.getElementById('result-video');
+      const source = document.getElementById('result-video-source');
+      // Prefer https (R2) over same-origin /video proxy that 302-redirects
+      const httpsUrl = [playUrl, fallbackUrl].filter(function (u) { return u && /^https?:\/\//i.test(u); })[0] || '';
+      const proxyUrl = [playUrl, fallbackUrl].filter(function (u) { return u && u.indexOf('/api/jobs/') === 0; })[0]
+        || (activeJobId ? ('/api/jobs/' + activeJobId + '/video') : '');
+      const ordered = [];
+      if (httpsUrl) ordered.push(httpsUrl);
+      if (proxyUrl && proxyUrl !== httpsUrl) ordered.push(proxyUrl);
+      if (!ordered.length && playUrl) ordered.push(playUrl);
+
+      document.getElementById('btn-download-result').href = httpsUrl || proxyUrl || playUrl;
+
+      const tryPlay = (idx) => {
+        if (idx >= ordered.length) {
+          errEl.textContent = 'Video could not be played. Try Download MP4.';
+          errEl.classList.remove('hidden');
+          return;
+        }
+        const src = ordered[idx];
+        source.removeAttribute('src');
+        video.removeAttribute('src');
+        source.src = src;
+        source.type = 'video/mp4';
+        video.src = src;
+        video.load();
+        video.onerror = function () {
+          console.warn('[AI Video] play failed for', src, 'code', video.error && video.error.code);
+          tryPlay(idx + 1);
+        };
+        video.onloadeddata = function () {
+          errEl.classList.add('hidden');
+        };
+      };
+      tryPlay(0);
+
+      const badge = document.getElementById('job-status-badge');
+      badge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+      badge.textContent = 'DONE';
+    }
+
+    function setFailed(msg) {
+      document.getElementById('result-processing').classList.add('hidden');
+      document.getElementById('result-placeholder').classList.remove('hidden');
+      const badge = document.getElementById('job-status-badge');
+      badge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-500/20 text-red-300 border border-red-500/40';
+      badge.textContent = 'FAILED';
+      showToast(msg || 'Video generation failed.', 'error');
+    }
+
+    async function startVideoGenerate() {
+      const files = refFiles.filter(Boolean);
+      if (files.length < 1) { showToast('Upload at least Picture 1.', 'error'); return; }
+      const prompt = document.getElementById('prompt-input').value.trim();
+      if (prompt.length < 5) { showToast('Prompt must be at least 5 characters.', 'error'); return; }
+      if (userCredits < creditsNeeded()) { showToast('Need ' + creditsNeeded() + ' credits.', 'error'); return; }
+
+      const btn = document.getElementById('btn-generate');
+      const spinner = document.getElementById('btn-generate-spinner');
+      btn.disabled = true;
+      spinner.classList.remove('hidden');
+      setProcessing('Please wait...', 'Uploading your photos');
+
+      const SUBMIT_URL = '/api/generate-video';
+      const SUBMIT_TIMEOUT_MS = 60000;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(function () { controller.abort(); }, SUBMIT_TIMEOUT_MS);
+
+      try {
+        const fd = new FormData();
+        files.forEach(function (f) { fd.append('ref_images', f); });
+        fd.append('prompt', prompt);
+        fd.append('duration', String(selectedDuration));
+        fd.append('scale', String(selectedScale));
+        fd.append('resolution', selectedScale === 2 ? '960P' : '480P');
+
+        console.log('[AI Video] POST start', SUBMIT_URL, {
+          refs: files.length,
+          duration: selectedDuration,
+          scale: selectedScale,
+          credits: creditsNeeded(),
+          promptLen: prompt.length
+        });
+
+        const res = await fetch(SUBMIT_URL, {
+          method: 'POST',
+          credentials: 'include',
+          body: fd,
+          signal: controller.signal
+        });
+
+        console.log('[AI Video] POST done', SUBMIT_URL, 'status=', res.status);
+
+        const rawText = await res.text();
+        var data = null;
+        try { data = rawText ? JSON.parse(rawText) : null; } catch (_) { data = null; }
+
+        if (!res.ok || !data || !data.success) {
+          var failMsg = (data && data.message) || rawText || ('HTTP ' + res.status);
+          throw new Error('Submit failed (' + res.status + '): ' + failMsg);
+        }
+
+        showToast('Video started — please wait.', 'success');
+        syncUserCredits();
+        activeJobId = data.data.jobId;
+        setProcessing('Please wait...', 'You are in line' + (data.data.queuePosition ? (' (#' + data.data.queuePosition + ')') : ''));
+        pollJob(data.data.jobId);
+      } catch (err) {
+        var msg = (err && err.message) ? err.message : 'Submit failed';
+        if (err && err.name === 'AbortError') {
+          msg = 'Upload timed out after ' + (SUBMIT_TIMEOUT_MS / 1000) + 's. Check network and try again.';
+        }
+        console.log('[AI Video] POST error', SUBMIT_URL, msg);
+        setFailed(msg);
+      } finally {
+        clearTimeout(timeoutId);
+        btn.disabled = false;
+        spinner.classList.add('hidden');
+      }
+    }
+
+    function pollJob(jobId) {
+      activeJobId = jobId;
+      if (pollingInterval) clearInterval(pollingInterval);
+      pollingInterval = setInterval(async () => {
+        try {
+          const res = await fetch('/api/jobs/' + jobId, { credentials: 'include' });
+          const data = await res.json();
+          if (!data.success) return;
+          const job = data.data;
+          if (job.status === 'pending') {
+            setProcessing('Please wait...', 'You are in line' + (job.queuePosition ? (' (#' + job.queuePosition + ')') : ''));
+          } else if (job.status === 'processing') {
+            setProcessing('Please wait...', 'Creating your video — usually a few minutes');
+          } else if (job.status === 'done') {
+            clearInterval(pollingInterval);
+            // Prefer public R2 for <video> (no 302/auth issues); /video as download/fallback
+            const playSrc = job.publicUrl || job.outputUrl || ('/api/jobs/' + jobId + '/video');
+            const downloadSrc = job.publicUrl || job.outputUrl || playSrc;
+            setCompleted(playSrc, downloadSrc);
+            syncUserCredits();
+            showToast('Video ready!', 'success');
+          } else if (job.status === 'failed' || job.status === 'expired') {
+            clearInterval(pollingInterval);
+            setFailed(job.errorMessage || 'Failed');
+            syncUserCredits();
+          }
+        } catch (_) {}
+      }, 3000);
+    }
+  </script>
+</body>
+</html>

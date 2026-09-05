@@ -1,0 +1,594 @@
+{
+  "5": {
+    "inputs": {
+      "prompt": [
+        "365",
+        0
+      ],
+      "width": [
+        "22:9",
+        0
+      ],
+      "height": [
+        "22:9",
+        1
+      ],
+      "length": [
+        "22:24",
+        1
+      ],
+      "ref_image_size": "max",
+      "clip": [
+        "171:3",
+        0
+      ],
+      "vae": [
+        "171:2",
+        0
+      ],
+      "audio_vae": [
+        "171:1",
+        0
+      ],
+      "ref_images.ref_image_0": [
+        "123",
+        0
+      ],
+      "ref_images.ref_image_1": [
+        "151",
+        0
+      ],
+      "ref_images.ref_image_2": [
+        "152",
+        0
+      ]
+    },
+    "class_type": "MiniMaxH3ReferenceToVideo",
+    "_meta": {
+      "title": "MiniMax H3 Reference to Video"
+    }
+  },
+  "16": {
+    "inputs": {
+      "value": 214688288835758
+    },
+    "class_type": "INTConstant",
+    "_meta": {
+      "title": "API seed_base"
+    }
+  },
+  "34": {
+    "inputs": {
+      "frame_rate": [
+        "168",
+        0
+      ],
+      "loop_count": 0,
+      "filename_prefix": "mm_h3_api",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 16,
+      "save_metadata": false,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": true,
+      "images": [
+        "165",
+        0
+      ],
+      "audio": [
+        "190",
+        0
+      ]
+    },
+    "class_type": "VHS_VideoCombine",
+    "_meta": {
+      "title": "Final MP4+audio output"
+    }
+  },
+  "103": {
+    "inputs": {
+      "value": 101841861457108
+    },
+    "class_type": "INTConstant",
+    "_meta": {
+      "title": "API seed_upscale"
+    }
+  },
+  "123": {
+    "inputs": {
+      "image": "ref_image_0.png",
+      "crop": "",
+      "max_megapixels": 2.0
+    },
+    "class_type": "LoadImageCrop",
+    "_meta": {
+      "title": "API ref_image_0"
+    }
+  },
+  "151": {
+    "inputs": {
+      "image": "ref_image_1.png",
+      "crop": "",
+      "max_megapixels": 2.0
+    },
+    "class_type": "LoadImageCrop",
+    "_meta": {
+      "title": "API ref_image_1"
+    }
+  },
+  "152": {
+    "inputs": {
+      "image": "ref_image_2.png",
+      "crop": "",
+      "max_megapixels": 2.0
+    },
+    "class_type": "LoadImageCrop",
+    "_meta": {
+      "title": "API ref_image_2"
+    }
+  },
+  "165": {
+    "inputs": {
+      "source_fps": 24.0,
+      "target_fps": [
+        "168",
+        0
+      ],
+      "scale": 1.0,
+      "model_name": "flownet.pkl",
+      "batch_size": 8,
+      "use_fp16": true,
+      "images": [
+        "189",
+        0
+      ]
+    },
+    "class_type": "RIFEInterpolation",
+    "_meta": {
+      "title": "RIFE Frame Interpolation"
+    }
+  },
+  "168": {
+    "inputs": {
+      "value": 48.0
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "RIFE target_fps (48 ON)"
+    }
+  },
+  "189": {
+    "inputs": {
+      "samples": [
+        "135:26",
+        0
+      ],
+      "vae": [
+        "171:2",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "Final Decode"
+    }
+  },
+  "190": {
+    "inputs": {
+      "samples": [
+        "135:26",
+        0
+      ],
+      "vae": [
+        "171:1",
+        0
+      ]
+    },
+    "class_type": "VAEDecodeAudio",
+    "_meta": {
+      "title": "Final Audio Decode"
+    }
+  },
+  "193": {
+    "inputs": {
+      "chunks": 4,
+      "seq_threshold": 2048,
+      "model": [
+        "171:4",
+        0
+      ]
+    },
+    "class_type": "MiniMaxChunkFeedForward",
+    "_meta": {
+      "title": "MiniMax H3 Chunk FeedForward"
+    }
+  },
+  "196": {
+    "inputs": {
+      "attention": "comfy kitchen attention",
+      "model": [
+        "305",
+        0
+      ]
+    },
+    "class_type": "ModelAttentionBackend",
+    "_meta": {
+      "title": "ModelAttentionBackend"
+    }
+  },
+  "242": {
+    "inputs": {
+      "av_latent": [
+        "125:12",
+        1
+      ]
+    },
+    "class_type": "LTXVSeparateAVLatent",
+    "_meta": {
+      "title": "AVSeparate"
+    }
+  },
+  "243": {
+    "inputs": {
+      "model_name": "minimax_h3_latent_upscaler_3d_bf16.safetensors",
+      "mode": "scale by multiplier",
+      "mode.scale": 1,
+      "align": 32,
+      "enable_temporal_chunking": true,
+      "force_unload": false,
+      "device": "cuda",
+      "precision": "fp16",
+      "latent": [
+        "242",
+        0
+      ]
+    },
+    "class_type": "MinimaxH3LatentUpscaler3D",
+    "_meta": {
+      "title": "Latent Upscale — API: mode.scale=1 (480P) or 2 (960P)"
+    }
+  },
+  "244": {
+    "inputs": {
+      "video_latent": [
+        "243",
+        0
+      ],
+      "audio_latent": [
+        "242",
+        1
+      ]
+    },
+    "class_type": "LTXVConcatAVLatent",
+    "_meta": {
+      "title": "LTXVConcatAVLatent"
+    }
+  },
+  "305": {
+    "inputs": {
+      "head_chunks": 4,
+      "model": [
+        "193",
+        0
+      ]
+    },
+    "class_type": "MiniMaxLowVRAMAttention",
+    "_meta": {
+      "title": "MiniMax H3 Low VRAM Attention"
+    }
+  },
+  "364": {
+    "inputs": {
+      "video_budget": 0.15,
+      "denser_early_late_steps": true,
+      "model": [
+        "196",
+        0
+      ]
+    },
+    "class_type": "H3SparseAttention",
+    "_meta": {
+      "title": "H3 Sparse Attention"
+    }
+  },
+  "365": {
+    "inputs": {
+      "prompt": "YOUR_H3_PROMPT_HERE",
+      "references": [
+        "366",
+        0
+      ]
+    },
+    "class_type": "H3PromptIDE",
+    "_meta": {
+      "title": "API prompt (H3 structured or plain text)"
+    }
+  },
+  "366": {
+    "inputs": {
+      "pictures.<Picture 1>": [
+        "123",
+        0
+      ],
+      "pictures.<Picture 2>": [
+        "151",
+        0
+      ],
+      "pictures.<Picture 3>": [
+        "152",
+        0
+      ]
+    },
+    "class_type": "H3PromptReferenceInputs",
+    "_meta": {
+      "title": "H3 Reference Inputs"
+    }
+  },
+  "171:3": {
+    "inputs": {
+      "clip_name": "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "type": "minimax",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Load CLIP"
+    }
+  },
+  "171:2": {
+    "inputs": {
+      "vae_name": "vae/minimax_h3_video_vae_fp16.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "171:1": {
+    "inputs": {
+      "vae_name": "vae/minimax_h3_audio_vae_fp32.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "171:4": {
+    "inputs": {
+      "unet_name": "10Eros_Max_h3_TURBO-hybrid_beta4.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Diffusion Model"
+    }
+  },
+  "22:7": {
+    "inputs": {
+      "scheduler": "beta",
+      "steps": [
+        "22:8",
+        0
+      ],
+      "denoise": 1.0,
+      "model": [
+        "196",
+        0
+      ]
+    },
+    "class_type": "BasicScheduler",
+    "_meta": {
+      "title": "BasicScheduler"
+    }
+  },
+  "22:8": {
+    "inputs": {
+      "value": 8
+    },
+    "class_type": "INTConstant",
+    "_meta": {
+      "title": "TOTAL STEPS"
+    }
+  },
+  "22:6": {
+    "inputs": {
+      "sampler_name": "er_sde"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "KSamplerSelect"
+    }
+  },
+  "22:9": {
+    "inputs": {
+      "aspect_ratio": "9:16 (Portrait Widescreen)",
+      "megapixels": 0.4,
+      "multiple": 32
+    },
+    "class_type": "ResolutionSelector",
+    "_meta": {
+      "title": "API aspect_ratio + megapixels(0.4 fixed)"
+    }
+  },
+  "22:23": {
+    "inputs": {
+      "value": 5.0
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "API video_length_seconds"
+    }
+  },
+  "22:24": {
+    "inputs": {
+      "expression": "max(5, round(a * 24)) + (5 - (max(5, round(a * 24)) % 17)) % 17",
+      "values.a": [
+        "22:23",
+        0
+      ]
+    },
+    "class_type": "ComfyMathExpression",
+    "_meta": {
+      "title": "Math Expression"
+    }
+  },
+  "125:17": {
+    "inputs": {
+      "noise_seed": [
+        "125:126",
+        1
+      ]
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "RandomNoise"
+    }
+  },
+  "125:126": {
+    "inputs": {
+      "expression": "a",
+      "variables.a": [
+        "16",
+        0
+      ]
+    },
+    "class_type": "SimpleCalculatorKJ",
+    "_meta": {
+      "title": "SimpleCalculatorKJ"
+    }
+  },
+  "125:12": {
+    "inputs": {
+      "noise": [
+        "125:17",
+        0
+      ],
+      "guider": [
+        "125:14",
+        0
+      ],
+      "sampler": [
+        "22:6",
+        0
+      ],
+      "sigmas": [
+        "22:7",
+        0
+      ],
+      "latent_image": [
+        "5",
+        1
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "Sampler #1"
+    }
+  },
+  "125:14": {
+    "inputs": {
+      "model": [
+        "196",
+        0
+      ],
+      "conditioning": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "BasicGuider",
+    "_meta": {
+      "title": "Basic Guider"
+    }
+  },
+  "135:30": {
+    "inputs": {
+      "sampler_name": "er_sde"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "KSamplerSelect"
+    }
+  },
+  "135:26": {
+    "inputs": {
+      "noise": [
+        "135:27",
+        0
+      ],
+      "guider": [
+        "135:29",
+        0
+      ],
+      "sampler": [
+        "135:30",
+        0
+      ],
+      "sigmas": [
+        "135:360",
+        0
+      ],
+      "latent_image": [
+        "244",
+        0
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "Upscale Pass"
+    }
+  },
+  "135:29": {
+    "inputs": {
+      "model": [
+        "364",
+        0
+      ],
+      "conditioning": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "BasicGuider",
+    "_meta": {
+      "title": "Basic Guider"
+    }
+  },
+  "135:27": {
+    "inputs": {
+      "noise_seed": [
+        "103",
+        0
+      ]
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "RandomNoise"
+    }
+  },
+  "135:360": {
+    "inputs": {
+      "scheduler": "linear_quadratic",
+      "steps": 8,
+      "denoise": 0.39999999999999997,
+      "model": [
+        "364",
+        0
+      ]
+    },
+    "class_type": "BasicScheduler",
+    "_meta": {
+      "title": "BasicScheduler"
+    }
+  },
+  "900": {
+    "class_type": "INTConstant",
+    "inputs": {
+      "value": 1
+    },
+    "_meta": {
+      "title": "API quality_upscale_x (1=480P, 2=960P) — also set node 243 mode.scale to match"
+    }
+  }
+}

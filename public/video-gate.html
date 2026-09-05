@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Video Access - Jakarta Naughty</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: { extend: { colors: { brand: { DEFAULT: '#FF788D', dark: '#e0536b', light: '#FFDADA' } }, fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'] } } }
+    };
+  </script>
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background: #080c14; }
+    .glass { background: rgba(15,23,42,0.85); border: 1px solid rgba(255,120,141,0.2); }
+  </style>
+</head>
+<body class="min-h-screen text-slate-100 flex items-center justify-center p-4">
+  <div class="glass w-full max-w-md rounded-3xl p-6 sm:p-8 shadow-2xl">
+    <div class="flex items-center gap-3 mb-6">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FF788D] to-[#e0536b] flex items-center justify-center font-black text-white">JN</div>
+      <div>
+        <h1 class="text-lg font-extrabold text-white">AI Video Access</h1>
+        <p class="text-[11px] text-slate-400">Members with the access password only</p>
+      </div>
+    </div>
+    <p class="text-xs text-slate-400 mb-4 leading-relaxed">Enter the access password to open AI Video. This check runs on the server (not only in the browser).</p>
+    <form id="gate-form" class="space-y-4" autocomplete="off">
+      <div>
+        <label for="gate-password" class="block text-[11px] font-bold text-slate-300 mb-1.5">Access password</label>
+        <input id="gate-password" type="password" required minlength="1" maxlength="200"
+          class="w-full px-4 py-3 rounded-2xl bg-slate-900 border border-slate-700 text-sm text-white focus:outline-none focus:border-brand"
+          placeholder="••••••••" autocomplete="current-password" />
+      </div>
+      <p id="gate-error" class="hidden text-[11px] text-red-300"></p>
+      <button id="gate-btn" type="submit" class="w-full py-3 rounded-2xl bg-gradient-to-r from-[#FF788D] to-[#e0536b] text-white font-extrabold text-sm shadow-lg shadow-[#FF788D]/25">
+        Unlock AI Video
+      </button>
+    </form>
+    <a href="/dashboard.html" class="block text-center text-[11px] text-slate-500 mt-4 hover:text-brand">Back to Dashboard</a>
+  </div>
+  <script>
+    (async () => {
+      try {
+        const me = await fetch('/api/auth/me', { credentials: 'include', cache: 'no-store' });
+        if (!me.ok) { location.replace('/login.html'); return; }
+        const st = await fetch('/api/video-gate/status', { credentials: 'include', cache: 'no-store' });
+        const sj = await st.json();
+        if (sj.success && sj.data && sj.data.unlocked) {
+          location.replace('/generate-video.html');
+        }
+      } catch (_) { location.replace('/login.html'); }
+    })();
+
+    document.getElementById('gate-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const err = document.getElementById('gate-error');
+      const btn = document.getElementById('gate-btn');
+      err.classList.add('hidden');
+      btn.disabled = true;
+      btn.textContent = 'Checking...';
+      try {
+        const res = await fetch('/api/video-gate/unlock', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: document.getElementById('gate-password').value }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          err.textContent = data.message || 'Wrong password.';
+          err.classList.remove('hidden');
+          btn.disabled = false;
+          btn.textContent = 'Unlock AI Video';
+          return;
+        }
+        location.replace('/generate-video.html');
+      } catch (_) {
+        err.textContent = 'Network error. Try again.';
+        err.classList.remove('hidden');
+        btn.disabled = false;
+        btn.textContent = 'Unlock AI Video';
+      }
+    });
+  </script>
+</body>
+</html>

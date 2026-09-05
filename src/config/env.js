@@ -92,6 +92,7 @@ const config = {
   runpod: {
     apiKey: process.env.RUNPOD_API_KEY,
     endpointId: process.env.RUNPOD_ENDPOINT_ID || 'kwhjwi2di095sq',
+    h3EndpointId: process.env.RUNPOD_H3_ENDPOINT_ID || 'aoezopejinqoyp',
   },
 
   // Vast.ai (Opsional / Legacy)
@@ -112,6 +113,7 @@ const config = {
   jobs: {
     maxConcurrentPerUser: parseInt(process.env.MAX_CONCURRENT_JOBS_PER_USER || '3', 10),
     timeoutMinutes: parseInt(process.env.JOB_TIMEOUT_MINUTES || '5', 10),
+    videoTimeoutMinutes: parseInt(process.env.JOB_VIDEO_TIMEOUT_MINUTES || process.env.JOB_TIMEOUT_VIDEO_MINUTES || '20', 10),
   },
 
 
@@ -137,6 +139,13 @@ const config = {
       process.env.R2_SECRET_ACCESS_KEY &&
       process.env.R2_BUCKET_NAME
     ),
+  },
+
+  // AI Video access gate (shared password)
+  videoGate: {
+    password: process.env.VIDEO_GATE_PASSWORD || '',
+    cookieDays: parseInt(process.env.VIDEO_GATE_COOKIE_DAYS || '7', 10),
+    cookieName: 'video_gate',
   },
 };
 

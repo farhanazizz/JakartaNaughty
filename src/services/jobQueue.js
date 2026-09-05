@@ -23,6 +23,7 @@ const { getDb } = require('../config/database');
 const { submitJob, getJobStatus, downloadOutput } = require('./comfyui');
 const { pickBestGpu, decrementInFlight } = require('./vastai');
 const { submitRunPodJob, getRunPodJobStatus, saveRunPodOutputImage, getEndpointId } = require('./runpod');
+const { submitH3Job, getH3JobStatus, saveH3OutputVideo, getH3EndpointId } = require('./h3Runpod');
 const { uploadToR2, isR2Active, deleteFromR2 } = require('./r2Storage');
 const { config } = require('../config/env');
 const { logger } = require('../utils/logger');
@@ -40,6 +41,7 @@ const POLL_INTERVAL_MS = 2500; // 2.5 detik
 
 /** Timeout job dalam ms */
 const JOB_TIMEOUT_MS = config.jobs.timeoutMinutes * 60 * 1000;
+const VIDEO_JOB_TIMEOUT_MS = (config.jobs.videoTimeoutMinutes || 20) * 60 * 1000;
 
 /** Maksimal percobaan pengalihan ke GPU lain jika terjadi gangguan/disconnect */
 const MAX_FAILOVER_RETRIES = 2;
@@ -126,6 +128,192 @@ function enqueueJob(userId, jobData) {
 }
 
 
+
+/**
+ * Enqueue AI Video (H3) job. Photo enqueueJob() remains unchanged.
+ */
+function enqueueVideoJob(userId, jobData) {
+  const db = getDb();
+
+  const activeCount = db.prepare(`
+    SELECT COUNT(*) as count FROM jobs
+    WHERE user_id = ? AND status IN ('pending', 'processing')
+  `).get(userId);
+
+  if (activeCount.count >= config.jobs.maxConcurrentPerUser) {
+    throw new Error(
+      `Kamu sudah punya ${activeCount.count} job yang sedang berjalan. ` +
+      `Maksimal ${config.jobs.maxConcurrentPerUser} job bersamaan.`
+    );
+  }
+
+  const jobId = uuidv4();
+  const now = new Date().toISOString();
+  const scale = Number(jobData.scale) === 2 ? 2 : 1;
+  const durationSec = Math.max(3, Math.min(10, Number(jobData.durationSec) || 5));
+  const creditsUsed = parseInt(jobData.creditsUsed, 10) || (scale === 2 ? Math.max(6, durationSec * 2) : Math.max(3, durationSec));
+  const refPaths = Array.isArray(jobData.refImagePaths) ? jobData.refImagePaths : [];
+  const refNames = Array.isArray(jobData.refImageNames) ? jobData.refImageNames : [];
+  const videoMeta = JSON.stringify({
+    refImagePaths: refPaths,
+    durationSec,
+    scale,
+  });
+  const resolution = scale === 2 ? '960p' : '480p';
+
+  db.prepare(`
+    INSERT INTO jobs (
+      id, user_id, status, source_image_name, source_image_path,
+      positive_prompt, negative_prompt, seed, ref_boost, resolution, credits_used,
+      job_type, output_mime, video_meta, kind, duration_seconds, dialog, created_at
+    ) VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, 'video', 'video/mp4', ?, 'video', ?, ?, ?)
+  `).run(
+    jobId,
+    userId,
+    refNames.join(', ') || 'video-refs',
+    refPaths[0] || '',
+    jobData.prompt,
+    '',
+    jobData.seed ?? -1,
+    0,
+    resolution,
+    creditsUsed,
+    videoMeta,
+    durationSec,
+    jobData.prompt,
+    now
+  );
+
+  const position = db.prepare(`
+    SELECT COUNT(*) as count FROM jobs
+    WHERE status = 'pending' AND created_at <= ?
+  `).get(now);
+
+  logger.info(`Video job baru: id=${jobId} user=${userId} scale=${scale} dur=${durationSec}s posisi=${position.count}`);
+  triggerQueueWorker();
+  return { jobId, queuePosition: position.count };
+}
+
+async function processVideoJob(job) {
+  const db = getDb();
+  activeJobs.add(job.id);
+  logger.info(`Memulai AI Video job: id=${job.id} user=${job.user_id}`);
+
+  try {
+    let meta = {};
+    try { meta = JSON.parse(job.video_meta || '{}'); } catch (_) { meta = {}; }
+    const refPaths = Array.isArray(meta.refImagePaths) ? meta.refImagePaths : [];
+    if (refPaths.length < 1) throw new Error('Video job missing reference images');
+
+    const endpointId = getH3EndpointId();
+    if (!endpointId) throw new Error('RUNPOD_H3_ENDPOINT_ID not configured');
+
+    db.prepare(`
+      UPDATE jobs SET
+        status = 'processing',
+        gpu_instance_id = ?,
+        gpu_instance_url = ?,
+        error_message = NULL,
+        started_at = COALESCE(started_at, ?)
+      WHERE id = ?
+    `).run(
+      `runpod-h3-${endpointId}`,
+      `https://api.runpod.ai/v2/${endpointId}`,
+      new Date().toISOString(),
+      job.id
+    );
+
+    const scale = Number(meta.scale) === 2 ? 2 : 1;
+    const durationSec = Number(meta.durationSec) || 5;
+
+    const { runpodJobId, actualSeed } = await submitH3Job({
+      refImagePaths: refPaths,
+      prompt: job.positive_prompt,
+      durationSec,
+      scale,
+      seed: job.seed,
+    });
+
+    db.prepare(`
+      UPDATE jobs SET comfyui_prompt_id = ?, seed = ? WHERE id = ?
+    `).run(runpodJobId, actualSeed, job.id);
+
+    await pollH3UntilDone(job.id, runpodJobId);
+    activeJobs.delete(job.id);
+  } catch (err) {
+    logger.error(`❌ Video job ${job.id} gagal: ${err.message}`);
+    activeJobs.delete(job.id);
+    db.prepare(`
+      UPDATE jobs SET
+        status = 'failed',
+        error_message = ?,
+        completed_at = ?
+      WHERE id = ?
+    `).run(err.message, new Date().toISOString(), job.id);
+
+    try {
+      const { addCredit } = require('./creditService');
+      addCredit(job.user_id, job.credits_used || 5, 'Refund otomatis: AI Video gagal (' + err.message.substring(0, 60) + ')', null);
+      logger.info(`Kredit video dikembalikan ke user ${job.user_id} (job ${job.id})`);
+    } catch (refundErr) {
+      logger.error(`Gagal refund video job ${job.id}: ${refundErr.message}`);
+    }
+  }
+}
+
+async function pollH3UntilDone(jobId, runpodJobId) {
+  const db = getDb();
+  const startTime = Date.now();
+
+  while (true) {
+    const elapsed = Date.now() - startTime;
+    if (elapsed > VIDEO_JOB_TIMEOUT_MS) {
+      throw new Error(`Timeout: video melebihi batas waktu (${Math.round(VIDEO_JOB_TIMEOUT_MS / 60000)} menit)`);
+    }
+
+    const { status, output, error } = await getH3JobStatus(runpodJobId);
+
+    if (status === 'COMPLETED') {
+      const outputFilename = `${jobId}.mp4`;
+      const outputPath = path.join(config.upload.outputDir, outputFilename);
+      await saveH3OutputVideo(output, outputPath);
+
+      let finalOutputRef = outputFilename;
+      if (isR2Active()) {
+        try {
+          const r2Key = `outputs/${jobId}.mp4`;
+          const r2Result = await uploadToR2(outputPath, r2Key, 'video/mp4');
+          finalOutputRef = r2Result.publicUrl;
+          try { if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath); } catch (_) {}
+        } catch (r2Err) {
+          logger.warn(`Gagal upload video ke R2 (${r2Err.message}), pakai file lokal.`);
+        }
+      }
+
+      db.prepare(`
+        UPDATE jobs SET
+          status = 'done',
+          output_filename = ?,
+          output_mime = 'video/mp4',
+          error_message = NULL,
+          completed_at = ?
+        WHERE id = ?
+      `).run(finalOutputRef, new Date().toISOString(), jobId);
+
+      logger.info(`🎉 Video job ${jobId} SELESAI: output=${finalOutputRef}`);
+      return true;
+    }
+
+    if (status === 'FAILED') {
+      const errMsg = error || (output && output.details ? output.details.join(' ') : 'H3 serverless worker failed');
+      throw new Error(errMsg);
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+  }
+}
+
+
 /**
  * Mendapatkan info job berdasarkan ID.
  *
@@ -174,6 +362,9 @@ function getQueuePosition(jobId) {
  * @param {Object} job - Data job dari database
  */
 async function processJob(job) {
+  if (job.job_type === 'video') {
+    return processVideoJob(job);
+  }
   const db = getDb();
   activeJobs.add(job.id);
   logger.info(`Memulai pemrosesan job: id=${job.id} user=${job.user_id}`);
@@ -593,15 +784,19 @@ async function cleanExpiredJobs() {
 function reconcileStuckJobs() {
   try {
     const db = getDb();
-    const cutoffTime = new Date(Date.now() - JOB_TIMEOUT_MS).toISOString();
+    const photoCutoff = new Date(Date.now() - JOB_TIMEOUT_MS).toISOString();
+    const videoCutoff = new Date(Date.now() - VIDEO_JOB_TIMEOUT_MS).toISOString();
 
-    // 1. Cari job 'processing' yang sudah berjalan melebihi batas waktu maksimal (timeout eksekusi)
+    // 1. Cari job 'processing' yang sudah berjalan melebihi batas waktu (photo vs video)
     const stuckJobs = db.prepare(`
       SELECT * FROM jobs
       WHERE status = 'processing'
         AND started_at IS NOT NULL
-        AND started_at < ?
-    `).all(cutoffTime);
+        AND (
+          (COALESCE(job_type, 'photo') != 'video' AND started_at < ?)
+          OR (job_type = 'video' AND started_at < ?)
+        )
+    `).all(photoCutoff, videoCutoff);
 
     // 2. Cari job 'processing' yang terputus di tengah jalan saat server/backend restart (tidak ada di activeJobs memory)
     const activeDbProcessing = db.prepare(`
@@ -683,6 +878,7 @@ function startQueueWorker() {
 
 module.exports = {
   enqueueJob,
+  enqueueVideoJob,
   getJobById,
   getQueuePosition,
   startQueueWorker,

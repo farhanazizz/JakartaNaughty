@@ -1,14 +1,9 @@
-<!DOCTYPE html>
-<!--
-  ============================================================
-  public/dashboard.html — Member Dashboard (Jakarta Naughty - English)
-  ============================================================
--->
+﻿<!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Member Dashboard — Jakarta Naughty</title>
+  <title>Member Dashboard - Jakarta Naughty</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <script>
@@ -97,7 +92,10 @@
         </div>
 
         <a href="/generate.html" class="hidden sm:flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#FF788D] to-[#e0536b] hover:opacity-90 text-white rounded-xl text-xs font-bold shadow-lg shadow-[#FF788D]/25 transition-all">
-          <span>✨</span> Create Photo
+          <span>&#x1F4F7;</span> Create Photo
+        </a>
+        <a href="/generate-video.html" class="hidden sm:flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold border border-slate-700 transition-all">
+          <span>&#x1F3AC;</span> Create Video
         </a>
 
         <button onclick="logoutUser()" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-red-400 rounded-xl transition-colors text-xs" title="Logout">
@@ -114,7 +112,7 @@
 
     <!-- 3-Day Temporary Storage Policy Alert Banner -->
     <div class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3 text-xs text-amber-200">
-      <span class="text-base shrink-0">⏳</span>
+      <span class="text-base shrink-0">&#x26A0;&#xFE0F;</span>
       <div>
         <strong class="font-bold text-amber-300">Temporary Cloud Storage Notice:</strong>
         <p class="mt-0.5 text-amber-200/90 leading-relaxed">
@@ -126,13 +124,13 @@
     <!-- Feature Selector Tabs -->
     <div class="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-semibold">
       <div class="px-4 py-2 rounded-xl bg-brand/10 text-brand border border-brand/30 flex items-center gap-2 shrink-0">
-        <span>📸</span> Photo Creator <span class="text-[9px] px-1.5 py-0.2 bg-brand text-white rounded-full font-bold">ACTIVE</span>
+        <span>&#x1F4F7;</span> Photo Creator <span class="text-[9px] px-1.5 py-0.2 bg-brand text-white rounded-full font-bold">ACTIVE</span>
       </div>
+      <a href="/generate-video.html" class="px-4 py-2 rounded-xl bg-slate-900/60 text-slate-200 border border-slate-700 hover:border-brand/40 hover:text-brand flex items-center gap-2 shrink-0 transition-colors">
+        <span>&#x1F3AC;</span> AI Video <span class="text-[9px] px-1.5 py-0.2 bg-brand text-white rounded-full font-bold">NEW</span>
+      </a>
       <div class="px-4 py-2 rounded-xl bg-slate-900/60 text-slate-500 border border-slate-800 flex items-center gap-2 shrink-0 opacity-60">
-        <span>🎬</span> AI Video <span class="text-[9px] text-slate-500">(Coming Soon)</span>
-      </div>
-      <div class="px-4 py-2 rounded-xl bg-slate-900/60 text-slate-500 border border-slate-800 flex items-center gap-2 shrink-0 opacity-60">
-        <span>🎭</span> Face Swap <span class="text-[9px] text-slate-500">(Coming Soon)</span>
+        <span>&#x1F464;</span> Face Swap <span class="text-[9px] text-slate-500">(Coming Soon)</span>
       </div>
     </div>
 
@@ -164,7 +162,7 @@
             </div>
           </div>
           <a href="/generate.html" class="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-[#FF788D] to-[#e0536b] hover:opacity-90 text-white rounded-xl text-xs font-bold shadow-lg shadow-[#FF788D]/25 transition-all text-center">
-            Start Generating →
+            Start Generating &#x2605;
           </a>
         </div>
       </div>
@@ -174,7 +172,7 @@
     <div class="glass-card rounded-2xl p-6">
       <div class="flex items-center justify-between mb-4">
         <h3 class="font-bold text-base text-white flex items-center gap-2">
-          <span>📜</span> Recent Generation History
+          <span>&#x1F4DC;</span> Recent Generation History
         </h3>
         <a href="/generate.html" class="text-xs text-brand hover:underline font-semibold">Generate New +</a>
       </div>
@@ -190,9 +188,13 @@
             </tr>
           </thead>
           <tbody id="user-jobs-tbody" class="divide-y divide-slate-800/60">
-            <tr><td colspan="4" class="text-center py-8 text-slate-500">Loading history...</td></tr>
+            <tr><td colspan="4" class="text-center py-8 text-slate-500">Loading…</td></tr>
           </tbody>
         </table>
+      </div>
+      <div id="history-pagination" class="flex flex-wrap items-center justify-between gap-3 mt-4 pt-4 border-t border-slate-800">
+        <p id="history-page-info" class="text-[11px] text-slate-500">Loading…</p>
+        <div id="history-page-buttons" class="flex flex-wrap gap-1.5"></div>
       </div>
     </div>
 
@@ -202,8 +204,7 @@
   <div id="terms-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md hidden">
     <div class="glass-card max-w-lg w-full rounded-3xl p-6 sm:p-8 shadow-2xl border border-brand/30 relative text-left">
       <div class="flex items-center gap-3 mb-4">
-        <div class="w-10 h-10 rounded-xl bg-brand/20 border border-brand/40 flex items-center justify-center text-xl">
-          🛡️
+        <div class="w-10 h-10 rounded-xl bg-brand/20 border border-brand/40 flex items-center justify-center text-xl">&#x1F6E1;&#xFE0F;
         </div>
         <div>
           <h3 class="text-lg font-extrabold text-white">Responsible AI & Service Disclaimer</h3>
@@ -269,50 +270,121 @@
       document.getElementById('terms-modal').classList.add('hidden');
     }
 
+    let historyPage = 1;
+    const HISTORY_PER_PAGE = 10;
+
+    function formatJobDate(iso) {
+      if (!iso) return '\u2014';
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return String(iso);
+      return d.toLocaleString('id-ID', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+        hour12: false,
+      });
+    }
+
+    function renderHistoryPagination(pagination) {
+      const info = document.getElementById('history-page-info');
+      const btns = document.getElementById('history-page-buttons');
+      if (!info || !btns) return;
+      const total = pagination && pagination.total != null ? pagination.total : 0;
+      const page = pagination && pagination.page ? pagination.page : 1;
+      const totalPages = pagination && pagination.totalPages ? pagination.totalPages : 1;
+      const limit = pagination && pagination.limit ? pagination.limit : HISTORY_PER_PAGE;
+      const from = total === 0 ? 0 : (page - 1) * limit + 1;
+      const to = Math.min(page * limit, total);
+      info.textContent = total === 0
+        ? 'No history yet'
+        : ('Showing ' + from + '\u2013' + to + ' of ' + total + ' \u00b7 Page ' + page + '/' + totalPages);
+
+      btns.innerHTML = '';
+      const addBtn = (label, targetPage, disabled, primary) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = label;
+        b.disabled = !!disabled;
+        b.className = primary
+          ? 'min-w-[2rem] px-2.5 py-1 rounded-lg text-[11px] font-bold bg-brand/20 text-brand border border-brand/40'
+          : 'min-w-[2rem] px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-900/60 text-slate-300 border border-slate-700 hover:border-brand/40 disabled:opacity-40 disabled:cursor-not-allowed';
+        b.addEventListener('click', () => {
+          if (disabled || targetPage === historyPage) return;
+          historyPage = targetPage;
+          loadDashboard();
+        });
+        btns.appendChild(b);
+      };
+
+      addBtn('Prev', Math.max(1, page - 1), page <= 1, false);
+      const windowSize = 7;
+      let start = Math.max(1, page - Math.floor(windowSize / 2));
+      let end = Math.min(totalPages, start + windowSize - 1);
+      start = Math.max(1, end - windowSize + 1);
+      if (start > 1) {
+        addBtn('1', 1, false, page === 1);
+        if (start > 2) {
+          const dots = document.createElement('span');
+          dots.className = 'px-1 text-slate-600 text-[11px]';
+          dots.textContent = '\u2026';
+          btns.appendChild(dots);
+        }
+      }
+      for (let p = start; p <= end; p++) addBtn(String(p), p, false, p === page);
+      if (end < totalPages) {
+        if (end < totalPages - 1) {
+          const dots = document.createElement('span');
+          dots.className = 'px-1 text-slate-600 text-[11px]';
+          dots.textContent = '\u2026';
+          btns.appendChild(dots);
+        }
+        addBtn(String(totalPages), totalPages, false, page === totalPages);
+      }
+      addBtn('Next', Math.min(totalPages, page + 1), page >= totalPages, false);
+    }
+
     async function loadDashboard() {
       try {
-        const res = await fetch('/api/user/dashboard?t=' + Date.now(), {
+        const res = await fetch('/api/user/dashboard?page=' + historyPage + '&limit=' + HISTORY_PER_PAGE + '&t=' + Date.now(), {
           credentials: 'include',
           cache: 'no-store',
-          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
         });
         if (!res.ok) {
-          window.location.href = '/login.html';
-          return;
+          if (res.status === 401) { window.location.href = '/login.html'; return; }
+          throw new Error('Failed to load dashboard');
         }
         const json = await res.json();
-        const { credits, recentJobs } = json.data;
+        if (!json.success) throw new Error(json.message || 'Failed');
 
-        document.getElementById('nav-credit-count').textContent = credits;
-        document.getElementById('hero-credits-count').textContent = credits;
+        const { credits, recentJobs, pagination } = json.data;
+        const creditIds = ['nav-credit-count', 'hero-credits-count', 'user-credits-display'];
+        creditIds.forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = String(credits);
+        });
 
         const tbody = document.getElementById('user-jobs-tbody');
         if (!recentJobs || recentJobs.length === 0) {
-          tbody.innerHTML = `
-            <tr>
-              <td colspan="4" class="text-center py-10 text-slate-500">
-                <div class="text-2xl mb-1">📸</div>
-                <div>No generation history yet. Click <strong>Start Generating</strong> above to create your first photo!</div>
-              </td>
-            </tr>
-          `;
+          tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-slate-500"><div>No generation history yet. Click <strong>Start Generating</strong> above to create your first photo!</div></td></tr>';
+          renderHistoryPagination(pagination || { page: 1, total: 0, totalPages: 1, limit: HISTORY_PER_PAGE });
           return;
         }
 
-        // Check if any jobs are currently queued or processing
         const hasActiveJobs = recentJobs.some(j => j.status === 'pending' || j.status === 'processing');
         if (hasActiveJobs) {
           if (!dashboardPollingInterval) {
-            dashboardPollingInterval = setInterval(loadDashboard, 4000);
+            dashboardPollingInterval = setInterval(() => loadDashboard(), 4000);
           }
-        } else {
-          if (dashboardPollingInterval) {
-            clearInterval(dashboardPollingInterval);
-            dashboardPollingInterval = null;
-          }
+        } else if (dashboardPollingInterval) {
+          clearInterval(dashboardPollingInterval);
+          dashboardPollingInterval = null;
         }
 
         tbody.innerHTML = recentJobs.map(j => {
+          const isVideo = (j.job_type === 'video') || (j.output_mime && String(j.output_mime).startsWith('video/'));
           const statusBadge = j.status === 'done'
             ? '<span class="px-2.5 py-0.5 rounded-full emerald-badge text-[10px] font-bold">COMPLETED</span>'
             : j.status === 'processing'
@@ -322,31 +394,34 @@
             : j.status === 'expired'
             ? '<span class="px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 text-[10px] font-bold">EXPIRED</span>'
             : '<span class="px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-400 text-[10px] font-bold">FAILED</span>';
+          const typeBadge = isVideo
+            ? '<span class="ml-1 px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 text-[9px] font-bold">VIDEO</span>'
+            : '<span class="ml-1 px-1.5 py-0.5 rounded bg-slate-700/60 text-slate-400 text-[9px] font-bold">PHOTO</span>';
 
-          const imageHref = j.output_filename?.startsWith('http')
+          const resultHref = j.output_filename && String(j.output_filename).startsWith('http')
             ? j.output_filename
-            : `/api/jobs/${j.id}/image`;
+            : (isVideo ? ('/api/jobs/' + j.id + '/video') : ('/api/jobs/' + j.id + '/image'));
+          const dlLabel = isVideo ? 'Download Video' : 'Download';
 
-          return `
-            <tr class="hover:bg-slate-800/30 transition-colors">
-              <td class="py-3.5 px-3 text-slate-400">${new Date(j.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
-              <td class="py-3.5 px-3">${statusBadge}</td>
-              <td class="py-3.5 px-3 text-slate-300 max-w-sm truncate" title="${escapeHtml(j.positive_prompt)}">
-                ${escapeHtml(j.positive_prompt)}
-              </td>
-              <td class="py-3.5 px-3 text-right">
-                ${j.status === 'done'
-                  ? `<a href="${imageHref}" target="_blank" class="px-3 py-1 bg-brand/10 hover:bg-brand/20 text-brand rounded-lg font-bold border border-brand/30">Download</a>`
+          return (
+            '<tr class="hover:bg-slate-800/30 transition-colors">' +
+              '<td class="py-3.5 px-3 text-slate-400 whitespace-nowrap">' + formatJobDate(j.created_at) + '</td>' +
+              '<td class="py-3.5 px-3">' + statusBadge + typeBadge + '</td>' +
+              '<td class="py-3.5 px-3 text-slate-300 max-w-sm truncate" title="' + escapeHtml(j.positive_prompt) + '">' + escapeHtml(j.positive_prompt) + '</td>' +
+              '<td class="py-3.5 px-3 text-right">' +
+                (j.status === 'done'
+                  ? '<a href="' + resultHref + '" target="_blank" download class="px-3 py-1 bg-brand/10 hover:bg-brand/20 text-brand rounded-lg font-bold border border-brand/30">' + dlLabel + '</a>'
                   : j.status === 'expired'
                   ? '<span class="text-slate-500 text-[11px]">Cleaned Up (3d)</span>'
                   : j.status === 'failed'
                   ? '<span class="text-red-400 text-[11px]">Credit Refunded</span>'
-                  : '<span class="text-slate-500 text-[11px]">Processing...</span>'}
-              </td>
-            </tr>
-          `;
+                  : '<span class="text-slate-500 text-[11px]">Processing...</span>') +
+              '</td>' +
+            '</tr>'
+          );
         }).join('');
 
+        renderHistoryPagination(pagination || { page: historyPage, total: recentJobs.length, totalPages: 1, limit: HISTORY_PER_PAGE });
       } catch (err) {
         console.error('Error loading dashboard:', err);
       }
