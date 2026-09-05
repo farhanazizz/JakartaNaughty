@@ -83,5 +83,9 @@ COPY extra_model_paths.yaml /comfyui/extra_model_paths.yaml
 COPY start_wrapper.sh /start_wrapper.sh
 RUN chmod +x /start_wrapper.sh
 
+# H3: collect VHS MP4 from history gifs/videos (stock handler only reads images)
+COPY handler.py /handler.py
+
+
 WORKDIR /
 CMD ["/start_wrapper.sh"]
