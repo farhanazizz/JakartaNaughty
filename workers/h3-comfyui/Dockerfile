@@ -69,39 +69,15 @@ RUN mkdir -p \
       /comfyui/custom_nodes/ComfyUI-VFI/rife/train_log \
       /comfyui/models/rife
 
-# Bake official RIFEv4.26 flownet (matches ComfyUI-VFI IFNet_HDv3). Size must be 24636301 bytes.
-# Wrong volume checkpoints (e.g. 23-ch IFNet) cause state_dict size mismatch at RIFEInterpolation.
+# Bake official RIFEv4.26 flownet via python urllib (base image has no curl).
+# Wrong volume checkpoints (23-ch IFNet) cause state_dict size mismatch at RIFEInterpolation.
+COPY bake_rife_flownet.py /tmp/bake_rife_flownet.py
 RUN set -eux; \
-    TMP=/tmp/rife426; mkdir -p "$TMP"; \
-    curl -fsSL -o "$TMP/rife.zip" \
-      "https://huggingface.co/hzwer/RIFE/resolve/main/RIFEv4.26_0921.zip"; \
-    python3 -c "import zipfile; zipfile.ZipFile('$TMP/rife.zip').extractall('$TMP')"; \
-    test -f "$TMP/RIFEv4.26_0921/flownet.pkl"; \
-    test "$(stat -c%s "$TMP/RIFEv4.26_0921/flownet.pkl")" = "24636301"; \
-    cp -f "$TMP/RIFEv4.26_0921/flownet.pkl" /comfyui/models/rife/flownet.pkl; \
-    cp -f "$TMP/RIFEv4.26_0921/flownet.pkl" /comfyui/custom_nodes/ComfyUI-VFI/rife/train_log/flownet.pkl; \
-    # Do NOT overwrite RIFE_HDv3.py from zip (broken imports: model.loss vs ..model.loss).
-    # VFI pin IFNet already matches RIFEv4.26 weight shapes (15-ch / encode 16).
-    rm -rf "$TMP"
+    mkdir -p /comfyui/custom_nodes/ComfyUI-VFI/rife/train_log /comfyui/models/rife; \
+    python3 /tmp/bake_rife_flownet.py; \
+    rm -f /tmp/bake_rife_flownet.py; \
+    test "$(stat -c%s /comfyui/models/rife/flownet.pkl)" = "24636301"
 
-# Build-time verify: VHS module imports under launch venv
-RUN set -eux; \
-    /opt/venv/bin/python - <<'PY'
-import importlib.util, os, sys
-candidates = [
-    "/comfyui/custom_nodes/ComfyUI-VideoHelperSuite",
-    "/comfyui/custom_nodes/comfyui-videohelpersuite",
-]
-root = next((p for p in candidates if os.path.isdir(p)), None)
-assert root, f"VHS folder missing; custom_nodes={os.listdir('/comfyui/custom_nodes')}"
-init = os.path.join(root, "__init__.py")
-# Load package-ish without full ComfyUI graph: at least ensure cv2 + ffmpeg deps present
-import cv2  # noqa: F401
-import imageio_ffmpeg  # noqa: F401
-print("VHS folder OK:", root)
-print("cv2", cv2.__version__)
-print("custom_nodes:", sorted(os.listdir("/comfyui/custom_nodes")))
-PY
 
 COPY extra_model_paths.yaml /comfyui/extra_model_paths.yaml
 COPY start_wrapper.sh /start_wrapper.sh
