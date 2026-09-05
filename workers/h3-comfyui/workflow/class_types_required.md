@@ -1,7 +1,7 @@
 # class_types_required — minimax_h3_r2v_api_linear
 
 Generated: 2026-09-05 14:32 UTC+07:00
-Total unique class_types: 29
+Total unique class_types: 28
 Nodes in prompt: 40
 
 ## Unique class_type → pack
@@ -36,13 +36,13 @@ Nodes in prompt: 40
 | `VAEDecodeAudio` | ComfyUI core | `comfy_extras.nodes_audio` |
 | `VAELoader` | ComfyUI core | `nodes` |
 | `VHS_VideoCombine` | comfyui-videohelpersuite | `custom_nodes.comfyui-videohelpersuite` |
-| `easy seed` | comfyui-easy-use | `custom_nodes.comfyui-easy-use` |
 
 ## Packs required on RunPod H3 worker (non-core)
 
+Nodes **16** / **103** (`seed_base` / `seed_upscale`) use `INTConstant` (input key `value`) — Easy-Use `easy seed` removed. See `EASY_SEED_DIAGNOSIS.md`.
+
 - **ComfyUI-VFI**
 - **Comfyui_Minimax_h3_latent_Upscaler**
-- **comfyui-easy-use**
 - **comfyui-kjnodes**
 - **comfyui-obvpm**
 - **comfyui-videohelpersuite**
@@ -58,6 +58,8 @@ Nodes in prompt: 40
 - `ResolutionSelector`, `PrimitiveFloat`, `ComfyMathExpression`, VAE/CLIP/UNET loaders
 
 ## Explicitly NOT required (stripped)
+
+- **comfyui-easy-use** / `easy seed` — replaced by `INTConstant` (kjnodes); see `EASY_SEED_DIAGNOSIS.md`
 
 - rgthree-comfy (Fast Groups Bypasser, Any Switch, Power Lora Loader, Label)
 - cg-use-everywhere (Anything Everywhere)
@@ -77,14 +79,13 @@ Nodes in prompt: 40
 
 ## Pinned commits & mapper
 
-- Commit pins for the 8 non-core packs: [`PIN_COMMITS.md`](./PIN_COMMITS.md)
+- Commit pins for the 7 non-core packs: [`PIN_COMMITS.md`](./PIN_COMMITS.md)
 - RunPod `quality_upscale_x` → `prompt["243"]["inputs"]["mode.scale"]` (+ mirror `900`): [`MAPPER_mode_scale.md`](./MAPPER_mode_scale.md)
 
 | pack | short SHA (GitHub HEAD 2026-09-05) |
 |---|---|
 | ComfyUI-VFI | `6176a430` |
 | Comfyui_Minimax_h3_latent_Upscaler | `d7c01b90` |
-| comfyui-easy-use | `27168569` (= v1.4.1) |
 | comfyui-kjnodes | `e8e88f7c` |
 | comfyui-obvpm | `7d5b977a` |
 | comfyui-videohelpersuite | `4d907bee` |
