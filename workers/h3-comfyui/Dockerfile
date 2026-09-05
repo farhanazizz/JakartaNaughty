@@ -80,10 +80,8 @@ RUN set -eux; \
     test "$(stat -c%s "$TMP/RIFEv4.26_0921/flownet.pkl")" = "24636301"; \
     cp -f "$TMP/RIFEv4.26_0921/flownet.pkl" /comfyui/models/rife/flownet.pkl; \
     cp -f "$TMP/RIFEv4.26_0921/flownet.pkl" /comfyui/custom_nodes/ComfyUI-VFI/rife/train_log/flownet.pkl; \
-    # Prefer IFNet/RIFE/refine from the same zip (keeps code+weights aligned)
-    cp -f "$TMP/RIFEv4.26_0921/IFNet_HDv3.py" /comfyui/custom_nodes/ComfyUI-VFI/rife/train_log/IFNet_HDv3.py; \
-    cp -f "$TMP/RIFEv4.26_0921/RIFE_HDv3.py" /comfyui/custom_nodes/ComfyUI-VFI/rife/train_log/RIFE_HDv3.py; \
-    cp -f "$TMP/RIFEv4.26_0921/refine.py" /comfyui/custom_nodes/ComfyUI-VFI/rife/train_log/refine.py; \
+    # Do NOT overwrite RIFE_HDv3.py from zip (broken imports: model.loss vs ..model.loss).
+    # VFI pin IFNet already matches RIFEv4.26 weight shapes (15-ch / encode 16).
     rm -rf "$TMP"
 
 # Build-time verify: VHS module imports under launch venv
