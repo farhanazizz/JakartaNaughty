@@ -781,7 +781,14 @@ def handler(job):
                         f"worker-comfyui - Wrote bytes to temporary file: {temp_file_path}"
                     )
                     print(f"worker-comfyui - Uploading {filename} to S3...")
-                    s3_url = rp_upload.upload_image(job_id, temp_file_path)
+                    bucket_name = (
+                        os.environ.get("BUCKET_NAME")
+                        or os.environ.get("BUCKET_BUCKET_NAME")
+                        or "jakartanaughty"
+                    )
+                    s3_url = rp_upload.upload_image(
+                        job_id, temp_file_path, bucket_name=bucket_name
+                    )
                     os.remove(temp_file_path)
                     print(f"worker-comfyui - Uploaded {filename} to S3: {s3_url}")
                     output_data.append(
