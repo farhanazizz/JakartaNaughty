@@ -51,9 +51,9 @@
     },
     "16": {
       "inputs": {
-        "seed": 214688288835758
+        "value": 214688288835758
       },
-      "class_type": "easy seed",
+      "class_type": "INTConstant",
       "_meta": {
         "title": "API seed_base"
       }
@@ -89,9 +89,9 @@
     },
     "103": {
       "inputs": {
-        "seed": 101841861457108
+        "value": 101841861457108
       },
-      "class_type": "easy seed",
+      "class_type": "INTConstant",
       "_meta": {
         "title": "API seed_upscale"
       }
@@ -247,7 +247,7 @@
       },
       "class_type": "MinimaxH3LatentUpscaler3D",
       "_meta": {
-        "title": "Latent Upscale \u2014 API: mode.scale=1 (480P) or 2 (960P)"
+        "title": "Latent Upscale — API: mode.scale=1 (480P) or 2 (960P)"
       }
     },
     "244": {
@@ -589,7 +589,7 @@
         "value": 1
       },
       "_meta": {
-        "title": "API quality_upscale_x (1=480P, 2=960P) \u2014 also set node 243 mode.scale to match"
+        "title": "API quality_upscale_x (1=480P, 2=960P) — also set node 243 mode.scale to match"
       }
     }
   },
@@ -634,11 +634,11 @@
     },
     "seed_base": {
       "node": "16",
-      "key": "seed"
+      "key": "value"
     },
     "seed_upscale": {
       "node": "103",
-      "key": "seed"
+      "key": "value"
     },
     "rife_target_fps": {
       "node": "168",
