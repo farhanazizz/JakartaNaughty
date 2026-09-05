@@ -69,6 +69,23 @@ RUN mkdir -p \
       /comfyui/custom_nodes/ComfyUI-VFI/rife/train_log \
       /comfyui/models/rife
 
+# Bake official RIFEv4.26 flownet (matches ComfyUI-VFI IFNet_HDv3). Size must be 24636301 bytes.
+# Wrong volume checkpoints (e.g. 23-ch IFNet) cause state_dict size mismatch at RIFEInterpolation.
+RUN set -eux; \
+    TMP=/tmp/rife426; mkdir -p "$TMP"; \
+    curl -fsSL -o "$TMP/rife.zip" \
+      "https://huggingface.co/hzwer/RIFE/resolve/main/RIFEv4.26_0921.zip"; \
+    python3 -c "import zipfile; zipfile.ZipFile('$TMP/rife.zip').extractall('$TMP')"; \
+    test -f "$TMP/RIFEv4.26_0921/flownet.pkl"; \
+    test "$(stat -c%s "$TMP/RIFEv4.26_0921/flownet.pkl")" = "24636301"; \
+    cp -f "$TMP/RIFEv4.26_0921/flownet.pkl" /comfyui/models/rife/flownet.pkl; \
+    cp -f "$TMP/RIFEv4.26_0921/flownet.pkl" /comfyui/custom_nodes/ComfyUI-VFI/rife/train_log/flownet.pkl; \
+    # Prefer IFNet/RIFE/refine from the same zip (keeps code+weights aligned)
+    cp -f "$TMP/RIFEv4.26_0921/IFNet_HDv3.py" /comfyui/custom_nodes/ComfyUI-VFI/rife/train_log/IFNet_HDv3.py; \
+    cp -f "$TMP/RIFEv4.26_0921/RIFE_HDv3.py" /comfyui/custom_nodes/ComfyUI-VFI/rife/train_log/RIFE_HDv3.py; \
+    cp -f "$TMP/RIFEv4.26_0921/refine.py" /comfyui/custom_nodes/ComfyUI-VFI/rife/train_log/refine.py; \
+    rm -rf "$TMP"
+
 # Build-time verify: VHS module imports under launch venv
 RUN set -eux; \
     /opt/venv/bin/python - <<'PY'
