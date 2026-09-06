@@ -150,7 +150,7 @@ function enqueueVideoJob(userId, jobData) {
   const jobId = uuidv4();
   const now = new Date().toISOString();
   const scale = Number(jobData.scale) === 2 ? 2 : 1;
-  const durationSec = Math.max(3, Math.min(10, Number(jobData.durationSec) || 5));
+  const durationSec = Math.max(5, Math.min(15, Number(jobData.durationSec) || 5));
   const creditsUsed = parseInt(jobData.creditsUsed, 10) || (scale === 2 ? Math.max(6, durationSec * 2) : Math.max(3, durationSec));
   const refPaths = Array.isArray(jobData.refImagePaths) ? jobData.refImagePaths : [];
   const refNames = Array.isArray(jobData.refImageNames) ? jobData.refImageNames : [];
