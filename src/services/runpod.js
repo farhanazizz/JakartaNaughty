@@ -165,6 +165,19 @@ async function submitRunPodJob({ sourceImagePath, positivePrompt, negativePrompt
     cleanWorkflow[nodeId] = nodeData;
   }
 
+  // 5b. worker-comfyui hanya mengumpulkan output dari SaveImage.
+  //     Workflow UI pakai PixaromaPreview (#199) yang tidak masuk ke output.images → success_no_images.
+  //     Inject SaveImage dari VAEDecode (#164) agar response RunPod berisi gambar (lalu website upload R2 seperti biasa).
+  if (cleanWorkflow['164']) {
+    cleanWorkflow['900'] = {
+      class_type: 'SaveImage',
+      inputs: {
+        images: ['164', 0],
+        filename_prefix: 'jakarta_krea',
+      },
+    };
+  }
+
   // 6. Susun payload standar RunPod ComfyUI Worker
   const payload = {
     input: {
