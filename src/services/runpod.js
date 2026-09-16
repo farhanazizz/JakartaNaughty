@@ -138,11 +138,10 @@ async function submitRunPodJob({ sourceImagePath, positivePrompt, negativePrompt
 
   // 4. Pastikan node-node inti Krea2 tervalidasi
   if (modifiedWorkflow['195']) {
-    // Worker Comfy (runpod/worker-comfyui) tidak punya CLIP type 'krea2';
-    // type valid untuk Qwen3-VL TE: 'qwen_image'
+    // worker-comfyui 5.10+ (ComfyUI 0.34) punya CLIP type native 'krea2' untuk Qwen3-VL TE Krea2
     modifiedWorkflow['195'].inputs = {
       clip_name: 'qwen3-vl-4b-heretic.safetensors',
-      type: 'qwen_image',
+      type: 'krea2',
       device: 'default',
     };
   }
